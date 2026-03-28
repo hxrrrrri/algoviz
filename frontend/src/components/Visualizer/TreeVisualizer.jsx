@@ -193,7 +193,6 @@ export default function TreeVisualizer({ name, repr, prevRepr }) {
             <g key={`nlg-${i}`} transform={`translate(${nl.x},${nl.y})`}>
               <rect x={-9} y={-9} width={18} height={18} rx={3} className="tv-null-leaf" />
               <text textAnchor="middle" dominantBaseline="central" className="tv-null-text">∅</text>
-              <text y={-15} textAnchor="middle" className="tv-edge-label">{nl.dir}</text>
             </g>
           ))}
 
@@ -201,8 +200,9 @@ export default function TreeVisualizer({ name, repr, prevRepr }) {
           <AnimatePresence>
             {edges.map((e, i) => {
               const d = edgePath(e.px, e.py, e.cx, e.cy);
-              const mx = (e.px + e.cx) / 2;
-              const my = (e.py + e.cy) / 2 - 4;
+              // Place L/R label near the parent node, offset left or right
+              const labelX = e.dir === 'L' ? e.px - 14 : e.px + 14;
+              const labelY = e.py + NODE_R + 14;
               return (
                 <g key={`e-${i}`}>
                   <motion.path
@@ -212,8 +212,8 @@ export default function TreeVisualizer({ name, repr, prevRepr }) {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.35, delay: i * 0.04 }}
                   />
-                  {/* Direction label */}
-                  <text x={mx} y={my} textAnchor="middle" className="tv-edge-label">
+                  {/* Direction label — anchored near parent, not mid-edge */}
+                  <text x={labelX} y={labelY} textAnchor="middle" className="tv-edge-label">
                     {e.dir}
                   </text>
                 </g>
@@ -261,11 +261,6 @@ export default function TreeVisualizer({ name, repr, prevRepr }) {
                   className={`tv-node-val ${n.isNew ? 'tv-node-val-new' : ''}`}
                 >
                   {n.val.length > 5 ? n.val.slice(0, 5) + '…' : n.val}
-                </text>
-
-                {/* Depth label below */}
-                <text y={NODE_R + 13} textAnchor="middle" className="tv-depth-label">
-                  d:{n.depth}
                 </text>
               </g>
             ))}

@@ -125,10 +125,3 @@
 .tv-node-val-new {
   fill: var(--accent) !important;
 }
-
-/* ── Depth label ── */
-.tv-depth-label {
-  font-family: var(--font-mono); font-size: 8px;
-  fill: var(--text-3); opacity: 0.55;
-  pointer-events: none;
-}
