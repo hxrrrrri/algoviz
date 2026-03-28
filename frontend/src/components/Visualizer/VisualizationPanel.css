@@ -67,6 +67,39 @@
   border-radius: 0;
 }
 
+/* Run button (fullscreen mode) */
+.vp-run-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 13px; border-radius: var(--radius-sm);
+  background: var(--accent-dim); border: 1.5px solid var(--accent-border);
+  color: var(--accent); font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all 0.14s; letter-spacing: 0.03em;
+  font-family: var(--font-display);
+}
+.vp-run-btn:hover:not(:disabled) {
+  background: var(--accent); color: #000;
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.vp-run-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+.vp-run-running { opacity: 0.85; }
+.vp-run-spinner {
+  display: inline-block; width: 9px; height: 9px;
+  border: 2px solid transparent; border-top-color: currentColor;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+
+/* Variables sidebar toggle button */
+.vp-sidebar-toggle-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: var(--radius-sm);
+  background: none; border: 1px solid var(--border-1);
+  color: var(--text-3); font-size: 10px; font-weight: 600;
+  cursor: pointer; transition: all 0.14s; letter-spacing: 0.02em;
+  font-family: var(--font-display);
+}
+.vp-sidebar-toggle-btn:hover { color: var(--accent-2); border-color: var(--accent-2); background: rgba(124,132,240,0.08); }
+.vp-sidebar-open { color: var(--accent-2) !important; border-color: var(--accent-2) !important; background: rgba(124,132,240,0.10) !important; }
+
 /* Refresh button */
 .vp-refresh-btn {
   background: none; border: 1px solid var(--border-1);
@@ -129,6 +162,25 @@
 }
 .vp-step-n { color: var(--accent); font-weight: 700; font-size: 13px; }
 .vp-step-of, .vp-step-line { color: var(--text-3); }
+
+/* ── Body wrapper (topbar sibling — holds sidebar + content) ── */
+.vp-body {
+  flex: 1; display: flex; flex-direction: row;
+  overflow: hidden; position: relative;
+}
+
+/* ── Fullscreen variables sidebar ── */
+.vp-fs-sidebar {
+  height: 100%; border-right: 1px solid var(--border-1);
+  background: var(--bg-panel); z-index: 10; flex-shrink: 0;
+}
+.vp-fs-sidebar-inner {
+  width: 270px; height: 100%; overflow-y: auto; overflow-x: hidden;
+}
+/* The lvp inside sidebar should fill the panel without its own border */
+.vp-fs-sidebar-inner .lvp {
+  height: 100%; border: none; border-radius: 0;
+}
 
 /* ── Content area — centred ── */
 .vp-content {

@@ -339,6 +339,20 @@ def sanitize_code(code: str) -> str:
     return code
 
 
+ML_MODULES = frozenset({
+    'sklearn', 'tensorflow', 'keras', 'torch', 'xgboost',
+    'lightgbm', 'catboost', 'scipy', 'numpy', 'pandas',
+})
+
+def _is_ml_code(code: str) -> bool:
+    """Quick heuristic — does the code import any heavy ML library?"""
+    import re
+    for mod in ML_MODULES:
+        if re.search(rf'\b(import|from)\s+{mod}\b', code):
+            return True
+    return False
+
+
 class PythonExecutor:
     def __init__(self, max_steps: int = 5000, timeout: float = 8.0):
         self.max_steps = max_steps
@@ -356,6 +370,12 @@ class PythonExecutor:
         self._call_stack = []
         self._error = None
         self._stdout_buffer = []
+
+        # Auto-raise limits for ML/scientific code — it has many more internal steps
+        # and legitimately takes longer to run.
+        if _is_ml_code(code):
+            self.max_steps = max(self.max_steps, 50_000)
+            self.timeout   = max(self.timeout,   60.0)
 
         try:
             code = sanitize_code(code)
@@ -396,13 +416,28 @@ class PythonExecutor:
                 return ''
             safe_globals['input'] = mock_input
 
+            # Build the safe-keys set once — NOT inside the hot tracer callback.
+            _safe_keys = set(safe_builtins().keys())
+
+            def _is_user_var(k, v):
+                if k.startswith('__'):
+                    return False
+                if k in _safe_keys:
+                    return False
+                if isinstance(v, type):
+                    return False
+                return True
+
             def tracer(frame, event, arg):
+                # Return None (not tracer) for non-user-code frames.
+                # Returning tracer here caused every line inside sklearn/numpy/etc.
+                # to fire this callback, making ML code 50-100× slower.
                 if frame.f_code.co_filename != self._user_code_file:
-                    return tracer  # skip stdlib frames
-                
+                    return None
+
                 if self._step_count >= self.max_steps:
                     raise RuntimeError(f"Step limit ({self.max_steps}) reached. Possible infinite loop.")
-                
+
                 line = frame.f_lineno
 
                 if event == 'call':
@@ -417,26 +452,12 @@ class PythonExecutor:
 
                 if event in ('line', 'call', 'return', 'exception'):
                     try:
-                        _safe_keys = set(safe_builtins().keys())
-                        # Filter out built-in types and functions so only user-defined
-                        # names appear. Module-level locals == globals in CPython.
-                        def _is_user_var(k, v):
-                            if k.startswith('__'):
-                                return False
-                            if k in _safe_keys:
-                                return False
-                            # skip built-in exception/type classes
-                            if isinstance(v, type):
-                                return False
-                            return True
-
                         local_vars = {}
                         for k, v in frame.f_locals.items():
                             if _is_user_var(k, v):
                                 local_vars[k] = safe_repr(v)
 
                         global_vars = {}
-                        # Only report globals that differ from locals (i.e. in outer scope)
                         if frame.f_locals is not frame.f_globals:
                             for k, v in frame.f_globals.items():
                                 if _is_user_var(k, v):
@@ -452,8 +473,6 @@ class PythonExecutor:
                             }
 
                         stdout_val = stdout_capture.getvalue()
-                        
-                        # Only detect structures in user locals, not globals polluted with builtins
                         hints = detect_structure_hints(local_vars) if local_vars else {}
 
                         step_data = {

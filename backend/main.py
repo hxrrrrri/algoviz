@@ -26,16 +26,17 @@ class ExecuteRequest(BaseModel):
     language: str = "python"
     inputs: Optional[list] = []
     max_steps: Optional[int] = 5000
+    timeout: Optional[float] = 8.0
 
 @app.post("/execute")
 async def execute_code(req: ExecuteRequest):
     if req.language != "python":
         raise HTTPException(status_code=400, detail="Only Python supported in MVP")
-    
-    if len(req.code) > 10000:
+
+    if len(req.code) > 50000:
         raise HTTPException(status_code=400, detail="Code too long")
 
-    executor = PythonExecutor(max_steps=req.max_steps)
+    executor = PythonExecutor(max_steps=req.max_steps, timeout=req.timeout)
     trace = executor.execute(req.code, req.inputs or [])
     return {"trace": trace, "total_steps": len(trace)}
 

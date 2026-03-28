@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback, useRef, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
+import LiveVariablesPanel from '../panels/LiveVariablesPanel';
 import ArrayVisualizer from './ArrayVisualizer';
 import MatrixVisualizer from './MatrixVisualizer';
 import TreeVisualizer from './TreeVisualizer';
@@ -215,15 +216,18 @@ export default function VisualizationPanel() {
   const unpinVar       = useStore(s => s.unpinVar);
   const resetExecution = useStore(s => s.resetExecution);
   const code           = useStore(s => s.code);
+  const executeCode    = useStore(s => s.executeCode);
+  const isExecuting    = useStore(s => s.isExecuting);
 
   const step     = trace[currentStep] || null;
   const prevStep = currentStep > 0 ? trace[currentStep - 1] : null;
   const isError  = step?.event === 'error';
   const hasTrace = trace.length > 0;
 
-  const [dragOver, setDragOver]       = useState(false);
-  const [vizMode, setVizMode]         = useState('structure');
+  const [dragOver, setDragOver]         = useState(false);
+  const [vizMode, setVizMode]           = useState('structure');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [sidebarOpen, setSidebarOpen]   = useState(false);
   const panelRef = useRef(null);
 
   const toggleFullscreen = useCallback(() => {
@@ -235,7 +239,12 @@ export default function VisualizationPanel() {
   }, []);
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    const handler = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      if (fs) setSidebarOpen(true);   // auto-open sidebar when entering fullscreen
+      else    setSidebarOpen(false);  // close when exiting
+    };
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
@@ -377,6 +386,34 @@ export default function VisualizationPanel() {
         </div>
 
         <div className="vp-topbar-r">
+          {/* Run button — only shown in fullscreen mode */}
+          {isFullscreen && (
+            <button
+              className={`vp-run-btn ${isExecuting ? 'vp-run-running' : ''}`}
+              onClick={executeCode}
+              disabled={isExecuting}
+              title="Run code (Ctrl+Enter)"
+            >
+              {isExecuting
+                ? <><span className="vp-run-spinner" />Running…</>
+                : <>▶ Run</>}
+            </button>
+          )}
+
+          {/* Variables sidebar toggle — only in fullscreen */}
+          {isFullscreen && (
+            <button
+              className={`vp-sidebar-toggle-btn ${sidebarOpen ? 'vp-sidebar-open' : ''}`}
+              onClick={() => setSidebarOpen(v => !v)}
+              title={sidebarOpen ? 'Close variables sidebar' : 'Open variables sidebar'}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>
+              </svg>
+              Variables
+            </button>
+          )}
+
           {/* Complexity badge */}
           {complexity && (
             <div className={`vp-complexity ${complexityColor(complexity.time)}`} title={`${complexity.label} — Time: ${complexity.time} · Space: ${complexity.space}`}>
@@ -439,6 +476,26 @@ export default function VisualizationPanel() {
           )}
         </div>
       </div>
+
+      {/* Body: sidebar + content */}
+      <div className="vp-body">
+
+      {/* Fullscreen variables sidebar */}
+      <AnimatePresence>
+        {isFullscreen && sidebarOpen && (
+          <motion.div className="vp-fs-sidebar"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 270, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+            style={{ overflow: 'hidden', flexShrink: 0 }}
+          >
+            <div className="vp-fs-sidebar-inner">
+              <LiveVariablesPanel />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content */}
       <div className="vp-content">
@@ -617,6 +674,8 @@ export default function VisualizationPanel() {
           </>
         )}
       </div>
+
+      </div>{/* /vp-body */}
     </div>
   );
 }
