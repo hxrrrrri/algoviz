@@ -124,58 +124,103 @@ export default function Header() {
 
   return (
     <header className="hdr">
+      {/* Shine line */}
+      <div className="hdr-shine" />
+
       {/* Brand */}
       <div className="hdr-brand">
         <div className="hdr-logo">
-          <svg className="logo-svg" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Premium glass logo icon */}
+          <svg className="logo-svg" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--accent)"/>
-                <stop offset="100%" stopColor="var(--accent-2)"/>
+              <linearGradient id="glassBody" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.16)"/>
+                <stop offset="100%" stopColor="rgba(255,255,255,0.03)"/>
               </linearGradient>
+              <linearGradient id="topShine" x1="25%" y1="0%" x2="75%" y2="65%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.50)"/>
+                <stop offset="100%" stopColor="rgba(255,255,255,0.00)"/>
+              </linearGradient>
+              <linearGradient id="bracketL" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity="1"/>
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.65"/>
+              </linearGradient>
+              <linearGradient id="bracketR" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="var(--accent-2)" stopOpacity="1"/>
+                <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0.65"/>
+              </linearGradient>
+              <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
             </defs>
-            <path d="M18 2 L32 10 L32 26 L18 34 L4 26 L4 10 Z"
-                  stroke="url(#lg1)" strokeWidth="1.5" fill="var(--accent-dim)"/>
-            <path d="M12 14 L7 18 L12 22" stroke="var(--accent)" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M24 14 L29 18 L24 22" stroke="var(--accent-2)" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="18" cy="18" r="2" fill="var(--accent-4)"/>
+
+            {/* Frosted glass body */}
+            <rect x="2" y="2" width="34" height="34" rx="10"
+                  fill="url(#glassBody)"
+                  stroke="rgba(255,255,255,0.18)" strokeWidth="0.75"/>
+
+            {/* Top-left surface reflection */}
+            <rect x="2" y="2" width="34" height="16" rx="10"
+                  fill="url(#topShine)" opacity="0.55"/>
+
+            {/* Inner edge highlight (bottom) */}
+            <rect x="3.5" y="32" width="31" height="1"
+                  rx="0.5" fill="rgba(0,0,0,0.25)"/>
+
+            {/* Left code bracket */}
+            <path d="M14 12.5 L9 19 L14 25.5"
+                  stroke="url(#bracketL)" strokeWidth="2.2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  filter="url(#softGlow)"/>
+
+            {/* Right code bracket */}
+            <path d="M24 12.5 L29 19 L24 25.5"
+                  stroke="url(#bracketR)" strokeWidth="2.2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  filter="url(#softGlow)"/>
+
+            {/* Centre dot — accent jewel */}
+            <circle cx="19" cy="19" r="2.5" fill="var(--accent-4)" opacity="0.92"/>
+            <circle cx="19" cy="18.2" r="1" fill="rgba(255,255,255,0.5)" opacity="0.8"/>
           </svg>
-          <span className="logo-name">Code-Viz</span>
+
+          <div className="logo-wordmark">
+            <span className="logo-name">Code<span className="logo-sep">·</span>Viz</span>
+          </div>
         </div>
         <span className="hdr-tagline">Algorithm Intelligence Studio</span>
       </div>
 
       {/* Controls */}
       <div className="hdr-controls">
-        {/* Theme toggle: Glass ↔ Noir */}
-        <div className="toggle-group" title={theme === 'glass' ? 'Switch to Noir theme' : 'Switch to Glass theme'}>
+        {/* Theme toggle */}
+        <div className="toggle-group" title={theme === 'glass' ? 'Switch to Noir' : 'Switch to Glass'}>
           <button
             className={`theme-toggle-btn ${theme === 'glass' ? 'active' : ''}`}
             onClick={() => theme !== 'glass' && toggleTheme()}
           >
-            <Sparkles size={12} />
+            <Sparkles size={11} />
             Glass
           </button>
           <button
             className={`theme-toggle-btn ${theme === 'noir' ? 'active' : ''}`}
             onClick={() => theme !== 'noir' && toggleTheme()}
           >
-            <Film size={12} />
+            <Film size={11} />
             Noir
           </button>
         </div>
 
-        {/* Mode toggle: Dark ↔ Light */}
+        {/* Light / Dark */}
         <button className="mode-btn" onClick={toggleMode}
-          title={mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}>
+          title={mode === 'dark' ? 'Switch to Light' : 'Switch to Dark'}>
           {mode === 'dark'
-            ? <><Sun size={14}/><span>Light</span></>
-            : <><Moon size={14}/><span>Dark</span></>}
+            ? <><Sun size={13}/><span>Light</span></>
+            : <><Moon size={13}/><span>Dark</span></>}
         </button>
 
-        {/* Samples */}
+        {/* Examples */}
         <div className="samples-wrap">
           <button className="samples-btn" onClick={() => setSamplesOpen(v => !v)}>
             Examples

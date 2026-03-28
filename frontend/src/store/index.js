@@ -39,6 +39,9 @@ const useStore = create(
       executionError: null,
       highlightedLine: null,
 
+      // ── Pinned variables (dragged to visualization panel) ──
+      pinnedVars: [],
+
       // ── Actions ──
       setCode: (code) => set({ code }),
       setTheme: (theme) => set({ theme }),
@@ -82,7 +85,11 @@ const useStore = create(
         }
       },
 
-      resetExecution: () => set({ trace:[], currentStep:0, isPlaying:false, executionError:null, highlightedLine:null }),
+      resetExecution: () => set({ trace:[], currentStep:0, isPlaying:false, executionError:null, highlightedLine:null, pinnedVars:[] }),
+
+      pinVar:   (name) => set(s => ({ pinnedVars: s.pinnedVars.includes(name) ? s.pinnedVars : [...s.pinnedVars, name] })),
+      unpinVar: (name) => set(s => ({ pinnedVars: s.pinnedVars.filter(n => n !== name) })),
+      clearPinnedVars: () => set({ pinnedVars: [] }),
     }),
     {
       name: 'codeviz-prefs',

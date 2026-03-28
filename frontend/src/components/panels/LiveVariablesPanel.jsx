@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
-import { displayValue } from '../../utils/vizMapper';
+import { displayValue, flattenValue } from '../../utils/vizMapper';
 import './LiveVariablesPanel.css';
 
 /* ── Per-type config ── */
@@ -20,9 +20,18 @@ const TYPE_CFG = {
 const defaultCfg = { icon:'~', label:'?', color:'var(--text-2)' };
 const cfg = (type) => TYPE_CFG[type] || defaultCfg;
 
+const EXPANDABLE_TYPES = new Set(['list', 'tuple', 'dict', 'set', 'object']);
+
 function shortVal(repr, max = 30) {
   const v = displayValue(repr, max);
   return v.length > max ? v.slice(0, max) + '…' : v;
+}
+
+function prettyVal(repr) {
+  if (!repr) return 'None';
+  const flat = flattenValue(repr);
+  if (flat === null) return 'None';
+  return JSON.stringify(flat, null, 2);
 }
 
 /* ── Diff engine ── */
@@ -48,12 +57,15 @@ function diffLocals(curr, prev) {
 }
 
 /* ── Variable Row ── */
-function VarRow({ name, repr, isNew, isChanged, prvStr, stepKey }) {
-  const c         = cfg(repr?.type);
-  const [flash, setFlash] = useState(false);
-  const [popVal, setPopVal] = useState(false);
-  const mountedRef = useRef(false);
-  const prevKey    = useRef(stepKey);
+function VarRow({ name, repr, isNew, isChanged, prvStr, stepKey, isPinned, onPin, onUnpin }) {
+  const c              = cfg(repr?.type);
+  const [flash, setFlash]       = useState(false);
+  const [popVal, setPopVal]     = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const mountedRef  = useRef(false);
+  const prevKey     = useRef(stepKey);
+  const isExpandable = EXPANDABLE_TYPES.has(repr?.type);
 
   useEffect(() => {
     if (!mountedRef.current) { mountedRef.current = true; return; }
@@ -68,58 +80,118 @@ function VarRow({ name, repr, isNew, isChanged, prvStr, stepKey }) {
     prevKey.current = stepKey;
   }, [stepKey, isNew, isChanged]);
 
-  const val = shortVal(repr, 28);
+  const val      = shortVal(repr, 28);
+  const fullText = isExpandable ? prettyVal(repr) : '';
+
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('application/codeviz-var', name);
+    e.dataTransfer.effectAllowed = 'copy';
+    setDragging(true);
+  };
+  const handleDragEnd = () => setDragging(false);
 
   return (
     <motion.div
-      className={`vr ${flash ? 'vr-flash' : ''} ${isNew ? 'vr-new' : ''}`}
+      className={`vr ${flash ? 'vr-flash' : ''} ${isNew ? 'vr-new' : ''} ${dragging ? 'vr-dragging' : ''} ${isPinned ? 'vr-pinned' : ''}`}
       style={{ '--vc': c.color }}
       layout
       initial={{ opacity:0, x:16, scale:0.96 }}
       animate={{ opacity:1, x:0, scale:1 }}
-      exit={{ opacity:0, x:-10, height:0, marginBottom:0, padding:0 }}
+      exit={{ opacity:0, x:-10, height:0, marginBottom:0 }}
       transition={{ type:'spring', stiffness:400, damping:32 }}
     >
       {/* Left accent bar */}
       <div className="vr-bar" />
 
-      {/* Type badge */}
-      <div className="vr-type-badge">{c.icon}</div>
-
-      {/* Name + type label */}
-      <div className="vr-meta">
-        <span className="vr-name">{name}</span>
-        <span className="vr-type-label">{c.label}</span>
-      </div>
-
-      {/* Value */}
-      <div className="vr-val-wrap">
-        {isChanged && prvStr && (
-          <motion.div className="vr-prev"
-            initial={{ opacity:1 }} animate={{ opacity:0.5 }}
-            transition={{ duration:0.6 }}>
-            {shortVal({ type:'str', value: prvStr }, 18)}
-          </motion.div>
+      {/* Main flex row */}
+      <div className="vr-main">
+        {/* Drag handle — only for expandable types */}
+        {isExpandable && (
+          <div
+            className="vr-drag-handle"
+            draggable
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            title="Drag to Visualization panel"
+          >
+            ⠿
+          </div>
         )}
-        <motion.div
-          key={val}
-          className={`vr-val ${popVal ? 'vr-val-pop' : ''}`}
-          animate={popVal ? { scale:[1.22,1], color:['var(--change-text)','var(--vc)'] } : {}}
-          transition={{ duration:0.4 }}
-        >
-          {val}
-        </motion.div>
+
+        {/* Type badge */}
+        <div className="vr-type-badge">{c.icon}</div>
+
+        {/* Name + type label */}
+        <div className="vr-meta">
+          <span className="vr-name">{name}</span>
+          <span className="vr-type-label">{c.label}</span>
+        </div>
+
+        {/* Value + inline CHANGED tag */}
+        <div className="vr-val-wrap">
+          {isChanged && prvStr && (
+            <motion.div className="vr-prev"
+              initial={{ opacity:1 }} animate={{ opacity:0.5 }}
+              transition={{ duration:0.6 }}>
+              {shortVal({ type:'str', value: prvStr }, 16)}
+            </motion.div>
+          )}
+          <div className="vr-val-row">
+            <motion.div
+              key={val}
+              className={`vr-val ${popVal ? 'vr-val-pop' : ''}`}
+              animate={popVal ? { scale:[1.22,1], color:['var(--change-text)','var(--vc)'] } : {}}
+              transition={{ duration:0.4 }}
+            >
+              {val}
+            </motion.div>
+            <AnimatePresence>
+              {flash && (
+                <motion.div className="vr-changed-tag"
+                  initial={{ opacity:0, scale:0.6, x:4 }}
+                  animate={{ opacity:1, scale:1, x:0 }}
+                  exit={{ opacity:0, scale:0.7 }}
+                  transition={{ type:'spring', stiffness:500, damping:28 }}>
+                  {isNew ? 'NEW' : 'CHG'}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="vr-actions">
+          {isExpandable && (
+            <button
+              className={`vr-expand-btn ${expanded ? 'vr-expand-open' : ''}`}
+              onClick={() => setExpanded(v => !v)}
+              title={expanded ? 'Collapse' : 'Expand full value'}
+            >
+              {expanded ? '▴' : '▾'}
+            </button>
+          )}
+          {isExpandable && (
+            <button
+              className={`vr-pin-btn ${isPinned ? 'vr-pin-active' : ''}`}
+              onClick={() => isPinned ? onUnpin(name) : onPin(name)}
+              title={isPinned ? 'Unpin from Visualization' : 'Pin to Visualization'}
+            >
+              {isPinned ? '◉' : '◎'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Change indicator — the big visual attention grab */}
+      {/* Expanded full-value view */}
       <AnimatePresence>
-        {flash && (
-          <motion.div className="vr-changed-tag"
-            initial={{ opacity:0, scale:0.6, x:6 }}
-            animate={{ opacity:1, scale:1, x:0 }}
-            exit={{ opacity:0, scale:0.7 }}
-            transition={{ type:'spring', stiffness:500, damping:28 }}>
-            {isNew ? 'NEW' : 'CHANGED'}
+        {expanded && (
+          <motion.div className="vr-expanded"
+            initial={{ height:0, opacity:0 }}
+            animate={{ height:'auto', opacity:1 }}
+            exit={{ height:0, opacity:0 }}
+            transition={{ duration:0.22, ease:'easeOut' }}
+          >
+            <pre className="vr-expanded-val">{fullText}</pre>
           </motion.div>
         )}
       </AnimatePresence>
@@ -127,16 +199,24 @@ function VarRow({ name, repr, isNew, isChanged, prvStr, stepKey }) {
   );
 }
 
-/* ── Timeline dots ── */
+/* ── Timeline ── */
 function Timeline({ history, current, onJump }) {
   const ref = useRef(null);
   useEffect(() => {
-    if (ref.current) ref.current.scrollLeft = ref.current.scrollWidth;
-  }, [history.length]);
+    if (ref.current) {
+      const el = ref.current;
+      const active = el.children[current];
+      if (active) active.scrollIntoView({ inline:'nearest', block:'nearest' });
+      else el.scrollLeft = el.scrollWidth;
+    }
+  }, [current, history.length]);
 
   return (
     <div className="tl">
-      <span className="tl-label">TIMELINE</span>
+      <div className="tl-header">
+        <span className="tl-label">TIMELINE</span>
+        <span className="tl-count">{current + 1} / {history.length}</span>
+      </div>
       <div className="tl-track" ref={ref}>
         {history.map((h, i) => (
           <button key={i}
@@ -156,6 +236,9 @@ export default function LiveVariablesPanel() {
   const currentStep    = useStore(s => s.currentStep);
   const setCurrentStep = useStore(s => s.setCurrentStep);
   const setPlaying     = useStore(s => s.setPlaying);
+  const pinnedVars     = useStore(s => s.pinnedVars);
+  const pinVar         = useStore(s => s.pinVar);
+  const unpinVar       = useStore(s => s.unpinVar);
 
   const step     = trace[currentStep]  || null;
   const prevStep = currentStep > 0 ? trace[currentStep-1] : null;
@@ -174,14 +257,13 @@ export default function LiveVariablesPanel() {
     return { line: s.line, hasChange, hasError: s.event === 'error' };
   }), [trace]);
 
-  const jump = useCallback((i) => { setPlaying(false); setCurrentStep(i); }, []);
+  const jump = useCallback((i) => { setPlaying(false); setCurrentStep(i); }, [setPlaying, setCurrentStep]);
 
   const callStack = step?.call_stack || [];
   const stdout    = step?.stdout || '';
   const isError   = step?.event === 'error';
   const errorInfo = step?.error;
   const hasVars   = vars.length > 0;
-
   const changedCount = vars.filter(v => v.isNew || v.isChanged).length;
 
   return (
@@ -193,19 +275,19 @@ export default function LiveVariablesPanel() {
           Variables
         </div>
         <div className="lvp-meta">
-          {step?.line && <span className="lvp-line">line {step.line}</span>}
+          {step?.line && <span className="lvp-line">ln {step.line}</span>}
           {changedCount > 0 && (
             <motion.span className="lvp-changed-count"
               key={`${currentStep}-${changedCount}`}
               initial={{ scale:1.4 }} animate={{ scale:1 }}
               transition={{ type:'spring', stiffness:500, damping:25 }}>
-              {changedCount} changed
+              {changedCount} Δ
             </motion.span>
           )}
         </div>
       </div>
 
-      {/* Empty */}
+      {/* Empty state */}
       {!trace.length && (
         <div className="lvp-empty">
           <div className="lvp-empty-icon">⟨/⟩</div>
@@ -213,7 +295,7 @@ export default function LiveVariablesPanel() {
         </div>
       )}
 
-      {/* Variables */}
+      {/* Variables list */}
       {trace.length > 0 && (
         <div className="lvp-vars">
           {!hasVars && <div className="lvp-no-vars">No variables in scope</div>}
@@ -224,6 +306,9 @@ export default function LiveVariablesPanel() {
                 isNew={v.isNew} isChanged={v.isChanged}
                 prvStr={v.prvStr}
                 stepKey={currentStep}
+                isPinned={pinnedVars.includes(v.name)}
+                onPin={pinVar}
+                onUnpin={unpinVar}
               />
             ))}
           </AnimatePresence>
