@@ -7,12 +7,17 @@ import ast
 import math
 import builtins
 import warnings
+import os
 from typing import Any, Dict, List, Optional
 import io
 import contextlib
 
 # Suppress CPython-internal RuntimeWarning about unbound locals in comprehensions
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*unbound local.*")
+
+# Suppress TensorFlow / absl noisy startup logs
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 
 
 BLOCKED_BUILTINS = {

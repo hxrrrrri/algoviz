@@ -477,28 +477,11 @@ export default function VisualizationPanel() {
         </div>
       </div>
 
-      {/* Body: sidebar + content */}
+      {/* Body: content + right sidebar */}
       <div className="vp-body">
 
-      {/* Fullscreen variables sidebar */}
-      <AnimatePresence>
-        {isFullscreen && sidebarOpen && (
-          <motion.div className="vp-fs-sidebar"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 270, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-            style={{ overflow: 'hidden', flexShrink: 0 }}
-          >
-            <div className="vp-fs-sidebar-inner">
-              <LiveVariablesPanel />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Content */}
-      <div className="vp-content">
+      <div className={`vp-content ${isFullscreen ? 'vp-content-fs' : ''}`}>
 
         {/* ── Flow mode ── */}
         {vizMode === 'flow' && hasTrace && (
@@ -673,7 +656,24 @@ export default function VisualizationPanel() {
             )}
           </>
         )}
-      </div>
+      </div>{/* /vp-content */}
+
+      {/* Fullscreen variables sidebar — right side */}
+      <AnimatePresence>
+        {isFullscreen && sidebarOpen && (
+          <motion.div className="vp-fs-sidebar"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 270, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+            style={{ overflow: 'hidden', flexShrink: 0 }}
+          >
+            <div className="vp-fs-sidebar-inner">
+              <LiveVariablesPanel />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       </div>{/* /vp-body */}
     </div>
