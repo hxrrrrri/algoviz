@@ -7,26 +7,41 @@
   transition: background 0.35s;
 }
 
-/* ── Ambient light orbs (glass theme only) ── */
+/* ── Ambient light orbs (glass theme) — metallic liquid chrome feel ── */
 .ambient-orb {
   position: fixed; border-radius: 50%;
   pointer-events: none; z-index: 0;
   transition: opacity 0.5s;
+  filter: blur(0px);
 }
 [data-theme="glass"] .ambient-orb { opacity: 1; }
 [data-theme="noir"]  .ambient-orb { opacity: 0; }
 
+/* Top-left teal orb — primary ambient */
 .orb-1 {
-  width: 900px; height: 900px; top: -300px; left: -200px;
-  background: radial-gradient(circle, rgba(52,211,153,0.075) 0%, rgba(52,211,153,0.015) 45%, transparent 70%);
+  width: 1000px; height: 1000px; top: -340px; left: -220px;
+  background: radial-gradient(ellipse at 40% 40%,
+    rgba(45,212,160,0.11) 0%,
+    rgba(45,212,160,0.04) 40%,
+    rgba(56,189,248,0.02) 65%,
+    transparent 80%);
 }
+/* Bottom-right indigo orb */
 .orb-2 {
-  width: 1100px; height: 1100px; bottom: -400px; right: -280px;
-  background: radial-gradient(circle, rgba(129,140,248,0.075) 0%, rgba(129,140,248,0.015) 45%, transparent 70%);
+  width: 1200px; height: 1200px; bottom: -450px; right: -300px;
+  background: radial-gradient(ellipse at 60% 60%,
+    rgba(124,132,240,0.12) 0%,
+    rgba(124,132,240,0.04) 40%,
+    rgba(45,212,160,0.02) 65%,
+    transparent 80%);
 }
+/* Centre warm orb */
 .orb-3 {
-  width: 650px; height: 650px; top: 25%; left: 30%;
-  background: radial-gradient(circle, rgba(251,191,36,0.04) 0%, transparent 60%);
+  width: 700px; height: 700px; top: 30%; left: 28%;
+  background: radial-gradient(circle,
+    rgba(248,188,48,0.04) 0%,
+    rgba(248,113,133,0.02) 50%,
+    transparent 70%);
 }
 
 /* ══ Main body layout ══ */
@@ -43,11 +58,24 @@
   overflow: hidden;
   box-shadow: var(--shadow-card);
   transition: border-color 0.3s, box-shadow 0.3s;
+  position: relative;
 }
 [data-theme="glass"] .glass-card {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.09);
+}
+[data-theme="glass"] .glass-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px; z-index: 100;
+  background: linear-gradient(90deg,
+    transparent 5%,
+    rgba(255,255,255,0.24) 30%,
+    rgba(255,255,255,0.32) 50%,
+    rgba(255,255,255,0.24) 70%,
+    transparent 95%);
+  pointer-events: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 [data-theme="noir"] .glass-card {
   box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px var(--border-1), inset 0 1px 0 rgba(255,255,255,0.04);
@@ -62,6 +90,22 @@
   overflow: hidden;
   box-shadow: var(--shadow-card);
   transition: border-color 0.3s, box-shadow 0.3s;
+  position: relative;
+}
+/* Chrome top-edge shine on panels */
+[data-theme="glass"] .panel-editor::before,
+[data-theme="glass"] .panel-viz::before,
+[data-theme="glass"] .panel-vars::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px; z-index: 100;
+  background: linear-gradient(90deg,
+    transparent 5%,
+    rgba(255,255,255,0.28) 25%,
+    rgba(255,255,255,0.38) 50%,
+    rgba(255,255,255,0.28) 75%,
+    transparent 95%);
+  pointer-events: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 [data-theme="glass"] .panel-editor {
   backdrop-filter: var(--glass-blur);
@@ -94,6 +138,7 @@
   border: 1px solid var(--border-1);
   box-shadow: var(--shadow-card);
   transition: border-color 0.3s, box-shadow 0.3s;
+  position: relative;
 }
 [data-theme="glass"] .panel-viz {
   backdrop-filter: var(--glass-blur);
@@ -112,6 +157,7 @@
   border: 1px solid var(--border-1);
   box-shadow: var(--shadow-card);
   transition: border-color 0.3s, box-shadow 0.3s;
+  position: relative;
 }
 [data-theme="glass"] .panel-vars {
   backdrop-filter: var(--glass-blur);
@@ -128,10 +174,23 @@
   border: 1px solid var(--border-1) !important;
   border-top: 1px solid var(--border-1) !important;
   box-shadow: var(--shadow-card) !important;
+  position: relative !important;
 }
 [data-theme="glass"] .panel-right > .ctrl {
   box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.09) !important;
 }
 [data-theme="noir"] .panel-right > .ctrl {
   box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px var(--border-1), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+[data-theme="glass"] .panel-right > .ctrl::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px; z-index: 100;
+  background: linear-gradient(90deg,
+    transparent 5%,
+    rgba(255,255,255,0.22) 30%,
+    rgba(255,255,255,0.30) 50%,
+    rgba(255,255,255,0.22) 70%,
+    transparent 95%);
+  pointer-events: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }

@@ -3,17 +3,38 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
 import ArrayVisualizer from './ArrayVisualizer';
 import MatrixVisualizer from './MatrixVisualizer';
-import { getPrimaryArray, getMatrix, flattenValue } from '../../utils/vizMapper';
+import TreeVisualizer from './TreeVisualizer';
+import { getPrimaryArray, getMatrix, getTreeNode, getStrings, flattenValue } from '../../utils/vizMapper';
 import './VisualizationPanel.css';
 
-/* ── Helper: deep-equality string for a flat value ── */
+/* ── String row visualizer (inline) ── */
+function StringBar({ name, value }) {
+  const chars = Array.from(value);
+  return (
+    <div className="sb">
+      <div className="sb-label">
+        <span className="sb-name">{name}</span>
+        <span className="sb-type">&quot;str&quot;</span>
+        <span className="sb-len">len {chars.length}</span>
+      </div>
+      <div className="sb-cells">
+        {chars.map((ch, i) => (
+          <div key={i} className="sb-cell">
+            <span className="sb-char">{ch === ' ' ? '·' : ch}</span>
+            <span className="sb-idx">{i}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Cell-change diffing ── */
 function cellKey(v) {
   if (v === null || v === undefined) return 'null';
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
-
-/* ── Build change-map between two flat values ── */
 function buildChangedSet(curr, prev) {
   if (!prev || !curr) return new Set();
   const changed = new Set();
@@ -57,9 +78,7 @@ function PinnedVarView({ name, repr, prevRepr, onUnpin }) {
       exit={{ opacity:0, y:-8, scale:0.96 }}
       transition={{ type:'spring', stiffness:380, damping:30 }}
     >
-      {/* Card top shine */}
       <div className="pv-shine" />
-
       <div className="pv-header">
         <div className="pv-title-wrap">
           <span className="pv-type-dot" style={{ background: accentColor }}/>
@@ -81,16 +100,13 @@ function PinnedVarView({ name, repr, prevRepr, onUnpin }) {
       </div>
 
       <div className="pv-body">
-        {/* 2D Matrix / DP Table */}
         {is2D && (
           <div className="pv-matrix-wrap">
             <table className="pv-matrix">
               <thead>
                 <tr>
                   <th className="pv-rc-label" />
-                  {flat[0].map((_, ci) => (
-                    <th key={ci} className="pv-col-label">{ci}</th>
-                  ))}
+                  {flat[0].map((_, ci) => <th key={ci} className="pv-col-label">{ci}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -116,7 +132,6 @@ function PinnedVarView({ name, repr, prevRepr, onUnpin }) {
           </div>
         )}
 
-        {/* 1D list / tuple */}
         {(is1D || isTuple) && (
           <div className="pv-list-wrap">
             {flat.map((item, i) => {
@@ -133,7 +148,6 @@ function PinnedVarView({ name, repr, prevRepr, onUnpin }) {
           </div>
         )}
 
-        {/* Dict */}
         {isDict && (
           <div className="pv-dict-wrap">
             {Object.entries(flat).map(([k, v]) => {
@@ -151,7 +165,6 @@ function PinnedVarView({ name, repr, prevRepr, onUnpin }) {
           </div>
         )}
 
-        {/* Fallback */}
         {!is2D && !is1D && !isDict && !isTuple && (
           <pre className="pv-raw">{JSON.stringify(flat, null, 2)}</pre>
         )}
@@ -160,7 +173,7 @@ function PinnedVarView({ name, repr, prevRepr, onUnpin }) {
   );
 }
 
-/* ── Main Panel ── */
+/* ══ Main Panel ══ */
 export default function VisualizationPanel() {
   const trace       = useStore(s => s.trace);
   const currentStep = useStore(s => s.currentStep);
@@ -175,34 +188,36 @@ export default function VisualizationPanel() {
 
   const [dragOver, setDragOver] = useState(false);
 
-  const hasArray  = useMemo(() => step ? !!getPrimaryArray(step.locals, step.structure_hints) : false, [step]);
-  const hasMatrix = useMemo(() => step ? !!getMatrix(step.locals, step.structure_hints) : false, [step]);
+  const locals  = step?.locals  || {};
+  const hints   = step?.structure_hints || {};
 
-  const handleDragOver = useCallback((e) => {
+  const hasArray  = useMemo(() => step ? !!getPrimaryArray(locals, hints) : false, [step, locals, hints]);
+  const hasMatrix = useMemo(() => step ? !!getMatrix(locals, hints)       : false, [step, locals, hints]);
+  const treeData  = useMemo(() => step ? getTreeNode(locals, hints)       : null,  [step, locals, hints]);
+  const strings   = useMemo(() => step ? getStrings(locals)               : [],    [step, locals]);
+
+  const handleDragOver  = useCallback((e) => {
     if (e.dataTransfer.types.includes('application/codeviz-var')) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-      setDragOver(true);
+      e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDragOver(true);
     }
   }, []);
   const handleDragLeave = useCallback(() => setDragOver(false), []);
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragOver(false);
+  const handleDrop      = useCallback((e) => {
+    e.preventDefault(); setDragOver(false);
     const name = e.dataTransfer.getData('application/codeviz-var');
     if (name) pinVar(name);
   }, [pinVar]);
 
-  /* Build current + previous repr for each pinned var */
   const pinnedData = useMemo(() => {
-    const locals     = step?.locals     || {};
     const prevLocals = prevStep?.locals || {};
     return pinnedVars.map(name => ({
       name,
       repr:     locals[name]     || null,
       prevRepr: prevLocals[name] || null,
     }));
-  }, [pinnedVars, step, prevStep]);
+  }, [pinnedVars, locals, prevStep]);
+
+  const hasAnyContent = hasArray || hasMatrix || !!treeData || strings.length > 0 || pinnedVars.length > 0;
 
   return (
     <div
@@ -213,13 +228,11 @@ export default function VisualizationPanel() {
     >
       <div className="vp-grid" />
 
-      {/* Drag-over overlay */}
       <AnimatePresence>
         {dragOver && (
           <motion.div className="vp-drop-overlay"
             initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-            transition={{ duration:0.12 }}
-          >
+            transition={{ duration:0.12 }}>
             <div className="vp-drop-icon">◎</div>
             <div className="vp-drop-text">Drop to visualize</div>
           </motion.div>
@@ -252,7 +265,7 @@ export default function VisualizationPanel() {
             </div>
             <div className="vp-empty-title">Code-Viz</div>
             <div className="vp-empty-sub">Write an algorithm and run it<br/>to see live visualization</div>
-            <div className="vp-empty-hint">Drag any list or matrix from Variables →</div>
+            <div className="vp-empty-hint">Drag any list, tree or matrix from Variables →</div>
             <div className="vp-empty-kbd">Ctrl + Enter to run</div>
           </div>
         )}
@@ -264,9 +277,18 @@ export default function VisualizationPanel() {
             <div className="vp-err-icon">⚠</div>
             <div>
               <div className="vp-err-type">{step.error.type}</div>
-              <div className="vp-err-msg">{step.error.message}{step.error.line ? ` — line ${step.error.line}` : ''}</div>
+              <div className="vp-err-msg">
+                {step.error.message}{step.error.line ? ` — line ${step.error.line}` : ''}
+              </div>
             </div>
           </motion.div>
+        )}
+
+        {/* String variables */}
+        {hasTrace && strings.length > 0 && (
+          <div className="vp-section">
+            {strings.map(s => <StringBar key={s.name} name={s.name} value={s.value} />)}
+          </div>
         )}
 
         {/* Auto-detected array */}
@@ -279,7 +301,7 @@ export default function VisualizationPanel() {
           </AnimatePresence>
         )}
 
-        {/* Auto-detected matrix */}
+        {/* Auto-detected DP matrix */}
         {hasTrace && hasMatrix && !hasArray && (
           <AnimatePresence>
             <motion.div key="mat" className="vp-section"
@@ -289,8 +311,18 @@ export default function VisualizationPanel() {
           </AnimatePresence>
         )}
 
+        {/* Auto-detected tree */}
+        {hasTrace && treeData && (
+          <AnimatePresence>
+            <motion.div key="tree" className="vp-section"
+              initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+              <TreeVisualizer name={treeData.name} repr={treeData.repr} />
+            </motion.div>
+          </AnimatePresence>
+        )}
+
         {/* No structure hint */}
-        {hasTrace && !hasArray && !hasMatrix && !isError && pinnedVars.length === 0 && (
+        {hasTrace && !hasAnyContent && !isError && (
           <div className="vp-no-struct">
             <div className="vp-no-struct-icon">◇</div>
             <div>No structure detected yet</div>
@@ -301,17 +333,12 @@ export default function VisualizationPanel() {
         {/* Pinned variables */}
         {pinnedData.length > 0 && (
           <div className="vp-pinned-section">
-            {(hasArray || hasMatrix) && <div className="vp-pinned-divider">Pinned Variables</div>}
+            {hasAnyContent && <div className="vp-pinned-divider">Pinned Variables</div>}
             <AnimatePresence>
               {pinnedData.map(({ name, repr, prevRepr }) =>
                 repr && (
-                  <PinnedVarView
-                    key={name}
-                    name={name}
-                    repr={repr}
-                    prevRepr={prevRepr}
-                    onUnpin={unpinVar}
-                  />
+                  <PinnedVarView key={name} name={name} repr={repr}
+                    prevRepr={prevRepr} onUnpin={unpinVar} />
                 )
               )}
             </AnimatePresence>

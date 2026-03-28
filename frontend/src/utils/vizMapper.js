@@ -148,12 +148,13 @@ export function getPointerStyle(name) {
 
 /**
  * Extract matrix/2D array data for DP visualization.
+ * Accepts 'matrix' and 'dp_table' hints (backend uses dp_table for vars named dp/memo/cache).
  */
 export function getMatrix(locals, hints) {
   if (!locals || !hints) return null;
-  
+
   for (const [name, hint] of Object.entries(hints)) {
-    if (hint === 'matrix' && locals[name]) {
+    if ((hint === 'matrix' || hint === 'dp_table') && locals[name]) {
       const flat = flattenValue(locals[name]);
       if (Array.isArray(flat) && flat.length > 0 && Array.isArray(flat[0])) {
         return { name, rows: flat };
@@ -161,6 +162,31 @@ export function getMatrix(locals, hints) {
     }
   }
   return null;
+}
+
+/**
+ * Find tree node variables (hint === 'tree_node').
+ * Returns { name, repr } of the first tree found.
+ */
+export function getTreeNode(locals, hints) {
+  if (!locals || !hints) return null;
+  for (const [name, hint] of Object.entries(hints)) {
+    if (hint === 'tree_node' && locals[name]) {
+      return { name, repr: locals[name] };
+    }
+  }
+  return null;
+}
+
+/**
+ * Get all string variables from locals.
+ * Returns [{ name, value }] for non-empty strings.
+ */
+export function getStrings(locals) {
+  if (!locals) return [];
+  return Object.entries(locals)
+    .filter(([, repr]) => repr?.type === 'str' && typeof repr?.value === 'string' && repr.value.length > 0)
+    .map(([name, repr]) => ({ name, value: repr.value }));
 }
 
 /**

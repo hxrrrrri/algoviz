@@ -173,6 +173,32 @@
 
 .pv-body { padding: 12px 14px 14px; overflow: auto; max-height: 360px; }
 
+/* ══ String Bar ══ */
+.sb { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.sb-label { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); }
+.sb-name { font-size: 12px; font-weight: 700; color: var(--text-1); }
+.sb-type { font-size: 9px; color: var(--accent-3); background: rgba(251,113,133,0.10);
+  border: 1px solid rgba(251,113,133,0.25); border-radius: 4px; padding: 1px 5px; }
+.sb-len  { font-size: 9px; color: var(--text-3); background: var(--bg-card);
+  border: 1px solid var(--border-2); border-radius: 4px; padding: 1px 5px; }
+.sb-cells { display: flex; flex-wrap: wrap; gap: 4px; }
+.sb-cell {
+  display: flex; flex-direction: column; align-items: center;
+  background: var(--bg-card); border: 1px solid var(--border-2);
+  border-radius: 6px; overflow: hidden; min-width: 30px;
+  transition: border-color 0.15s;
+}
+.sb-cell:hover { border-color: var(--accent-3); }
+.sb-char {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  color: var(--accent-3); padding: 6px 8px;
+}
+.sb-idx {
+  font-family: var(--font-mono); font-size: 8px; color: var(--text-3);
+  background: var(--bg-panel); padding: 2px 4px; width: 100%; text-align: center;
+  border-top: 1px solid var(--border-2);
+}
+
 /* ── Pinned card shine ── */
 .pv-shine {
   position: absolute; top: 0; left: 0; right: 0; height: 1px;
