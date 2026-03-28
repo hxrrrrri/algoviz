@@ -231,7 +231,8 @@ export default function VisualizationPanel() {
   const strings    = useMemo(() => step ? getStrings(locals)                : [],    [step, locals]);
   const hasLL      = useMemo(() => step ? !!getLinkedList(locals, hints)    : false, [step, locals, hints]);
   const hasSQ      = useMemo(() => step ? !!getStackOrQueue(locals, hints)  : false, [step, locals, hints]);
-  const hasHeap    = useMemo(() => step ? !!getHeap(locals, hints)          : false, [step, locals, hints]);
+  // Heap: check entire trace, not just current step (so it stays visible end-to-end)
+  const hasHeap    = useMemo(() => trace.some(s => !!getHeap(s.locals, s.structure_hints)), [trace]);
   const hasGraph   = useMemo(() => step ? !!getGraph(locals, hints)         : false, [step, locals, hints]);
 
   // Previous step tree for new-node diffing
@@ -273,7 +274,7 @@ export default function VisualizationPanel() {
   const dispTreeData  = useMemo(() => dispStep ? getTreeNode(dispLocals, dispHints)       : null,  [dispStep, dispLocals, dispHints]);
   const dispHasLL     = useMemo(() => dispStep ? !!getLinkedList(dispLocals, dispHints)   : false, [dispStep, dispLocals, dispHints]);
   const dispHasSQ     = useMemo(() => dispStep ? !!getStackOrQueue(dispLocals, dispHints) : false, [dispStep, dispLocals, dispHints]);
-  const dispHasHeap   = useMemo(() => dispStep ? !!getHeap(dispLocals, dispHints)         : false, [dispStep, dispLocals, dispHints]);
+  const dispHasHeap   = hasHeap; // trace-wide — managed by hasHeap above
   const dispHasGraph  = useMemo(() => dispStep ? !!getGraph(dispLocals, dispHints)        : false, [dispStep, dispLocals, dispHints]);
 
   const hasAnyContent = dispHasArray || dispHasMatrix || !!dispTreeData || dispStrings.length > 0
@@ -515,12 +516,12 @@ export default function VisualizationPanel() {
               </AnimatePresence>
             )}
 
-            {/* Heap */}
+            {/* Heap — shows all stages, persists after execution ends */}
             {hasTrace && dispHasHeap && (
               <AnimatePresence>
                 <motion.div key="heap" className="vp-section"
                   initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <HeapVisualizer stepData={dispStep} />
+                  <HeapVisualizer trace={trace} currentStep={currentStep} />
                 </motion.div>
               </AnimatePresence>
             )}
