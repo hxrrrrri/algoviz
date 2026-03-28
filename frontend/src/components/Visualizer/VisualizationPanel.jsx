@@ -5,7 +5,12 @@ import ArrayVisualizer from './ArrayVisualizer';
 import MatrixVisualizer from './MatrixVisualizer';
 import TreeVisualizer from './TreeVisualizer';
 import FlowVisualizer from './FlowVisualizer';
-import { getPrimaryArray, getMatrix, getTreeNode, getStrings, flattenValue } from '../../utils/vizMapper';
+import LinkedListVisualizer from './LinkedListVisualizer';
+import StackQueueVisualizer from './StackQueueVisualizer';
+import HeapVisualizer from './HeapVisualizer';
+import GraphVisualizer from './GraphVisualizer';
+import { getPrimaryArray, getMatrix, getTreeNode, getStrings, flattenValue,
+         getLinkedList, getStackOrQueue, getHeap, getGraph } from '../../utils/vizMapper';
 import { analyzeComplexity, complexityColor } from '../../utils/complexityAnalyzer';
 import './VisualizationPanel.css';
 
@@ -220,10 +225,14 @@ export default function VisualizationPanel() {
   const prevLocals = prevStep?.locals || {};
   const prevHints  = prevStep?.structure_hints || {};
 
-  const hasArray  = useMemo(() => step ? !!getPrimaryArray(locals, hints) : false, [step, locals, hints]);
-  const hasMatrix = useMemo(() => step ? !!getMatrix(locals, hints)       : false, [step, locals, hints]);
-  const treeData  = useMemo(() => step ? getTreeNode(locals, hints)       : null,  [step, locals, hints]);
-  const strings   = useMemo(() => step ? getStrings(locals)               : [],    [step, locals]);
+  const hasArray   = useMemo(() => step ? !!getPrimaryArray(locals, hints)  : false, [step, locals, hints]);
+  const hasMatrix  = useMemo(() => step ? !!getMatrix(locals, hints)        : false, [step, locals, hints]);
+  const treeData   = useMemo(() => step ? getTreeNode(locals, hints)        : null,  [step, locals, hints]);
+  const strings    = useMemo(() => step ? getStrings(locals)                : [],    [step, locals]);
+  const hasLL      = useMemo(() => step ? !!getLinkedList(locals, hints)    : false, [step, locals, hints]);
+  const hasSQ      = useMemo(() => step ? !!getStackOrQueue(locals, hints)  : false, [step, locals, hints]);
+  const hasHeap    = useMemo(() => step ? !!getHeap(locals, hints)          : false, [step, locals, hints]);
+  const hasGraph   = useMemo(() => step ? !!getGraph(locals, hints)         : false, [step, locals, hints]);
 
   // Previous step tree for new-node diffing
   const prevTreeData = useMemo(() => prevStep ? getTreeNode(prevLocals, prevHints) : null, [prevStep, prevLocals, prevHints]);
@@ -241,7 +250,8 @@ export default function VisualizationPanel() {
     }
   }, [trace.length]);
 
-  const hasStructContent = hasArray || hasMatrix || !!treeData || strings.length > 0;
+  const hasStructContent = hasArray || hasMatrix || !!treeData || strings.length > 0
+    || hasLL || hasSQ || hasHeap || hasGraph;
 
   if (step && hasStructContent) {
     lastStructRef.current = { locals, hints, strings, stepData: step };
@@ -257,8 +267,13 @@ export default function VisualizationPanel() {
   const dispHasArray  = useMemo(() => dispStep ? !!getPrimaryArray(dispLocals, dispHints) : false, [dispStep, dispLocals, dispHints]);
   const dispHasMatrix = useMemo(() => dispStep ? !!getMatrix(dispLocals, dispHints)       : false, [dispStep, dispLocals, dispHints]);
   const dispTreeData  = useMemo(() => dispStep ? getTreeNode(dispLocals, dispHints)       : null,  [dispStep, dispLocals, dispHints]);
+  const dispHasLL     = useMemo(() => dispStep ? !!getLinkedList(dispLocals, dispHints)   : false, [dispStep, dispLocals, dispHints]);
+  const dispHasSQ     = useMemo(() => dispStep ? !!getStackOrQueue(dispLocals, dispHints) : false, [dispStep, dispLocals, dispHints]);
+  const dispHasHeap   = useMemo(() => dispStep ? !!getHeap(dispLocals, dispHints)         : false, [dispStep, dispLocals, dispHints]);
+  const dispHasGraph  = useMemo(() => dispStep ? !!getGraph(dispLocals, dispHints)        : false, [dispStep, dispLocals, dispHints]);
 
-  const hasAnyContent = dispHasArray || dispHasMatrix || !!dispTreeData || dispStrings.length > 0 || pinnedVars.length > 0;
+  const hasAnyContent = dispHasArray || dispHasMatrix || !!dispTreeData || dispStrings.length > 0
+    || dispHasLL || dispHasSQ || dispHasHeap || dispHasGraph || pinnedVars.length > 0;
 
   /* ── Drag-and-drop ── */
   const handleDragOver  = useCallback((e) => {
@@ -454,6 +469,46 @@ export default function VisualizationPanel() {
                     repr={dispTreeData.repr}
                     prevRepr={prevTreeData?.repr || null}
                   />
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* Linked List */}
+            {hasTrace && dispHasLL && (
+              <AnimatePresence>
+                <motion.div key="ll" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <LinkedListVisualizer stepData={dispStep} />
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* Stack / Queue / Deque */}
+            {hasTrace && dispHasSQ && (
+              <AnimatePresence>
+                <motion.div key="sq" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <StackQueueVisualizer stepData={dispStep} />
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* Heap */}
+            {hasTrace && dispHasHeap && (
+              <AnimatePresence>
+                <motion.div key="heap" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <HeapVisualizer stepData={dispStep} />
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* Graph */}
+            {hasTrace && dispHasGraph && (
+              <AnimatePresence>
+                <motion.div key="graph" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <GraphVisualizer stepData={dispStep} />
                 </motion.div>
               </AnimatePresence>
             )}

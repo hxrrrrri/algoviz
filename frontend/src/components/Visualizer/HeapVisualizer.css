@@ -1,0 +1,54 @@
+.hv { display: flex; flex-direction: column; gap: 12px; }
+.hv-header { display: flex; align-items: center; gap: 9px; }
+.hv-name { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--accent-4); }
+.hv-type { font-size: 10px; border-radius: 4px; padding: 1px 7px; border: 1px solid; }
+.hv-type-min { color: #00e5ff; background: rgba(0,229,255,0.1); border-color: rgba(0,229,255,0.3); }
+.hv-type-max { color: #f85149; background: rgba(248,81,73,0.1);  border-color: rgba(248,81,73,0.3); }
+.hv-len { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+
+.hv-body { display: flex; flex-direction: column; gap: 14px; overflow-x: auto; }
+
+.hv-svg { overflow: visible; }
+
+.hv-edge {
+  stroke: var(--border-1); stroke-width: 1.5; fill: none;
+}
+
+.hv-node {
+  fill: var(--bg-card); stroke: var(--border-1); stroke-width: 1.5;
+  transition: fill 0.15s, stroke 0.15s;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+}
+.hv-node-root {
+  fill: color-mix(in srgb, var(--accent-4) 12%, var(--bg-card));
+  stroke: color-mix(in srgb, var(--accent-4) 65%, transparent);
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent-4) 30%, transparent));
+}
+
+.hv-node-val {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  fill: var(--text-1); pointer-events: none;
+}
+.hv-node-root + text.hv-node-val { fill: var(--accent-4); }
+.hv-node-idx {
+  font-family: var(--font-mono); font-size: 8px; fill: var(--text-3);
+  pointer-events: none;
+}
+
+/* Array strip */
+.hv-arr { display: flex; gap: 4px; flex-wrap: wrap; }
+.hv-arr-cell {
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  background: var(--bg-card); border: 1.5px solid var(--border-1);
+  border-radius: var(--radius-sm);
+}
+.hv-arr-root {
+  border-color: color-mix(in srgb, var(--accent-4) 65%, transparent);
+  background: color-mix(in srgb, var(--accent-4) 8%, var(--bg-card));
+}
+.hv-arr-val { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text-1); }
+.hv-arr-root .hv-arr-val { color: var(--accent-4); }
+.hv-arr-idx { font-family: var(--font-mono); font-size: 8px; color: var(--text-3);
+              position: absolute; bottom: 2px; right: 3px; }

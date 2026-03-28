@@ -207,3 +207,150 @@ export function formatCallStack(callStack) {
 export function getStdout(stepData) {
   return stepData?.stdout || '';
 }
+
+/**
+ * Traverse a linked list repr and return array of node descriptors.
+ */
+function traverseLinkedList(repr, visited = new Set()) {
+  const nodes = [];
+  let current = repr;
+  let depth = 0;
+  while (current && current.type === 'object' && depth < 50) {
+    const id = current.id;
+    if (visited.has(id)) { nodes.push({ val: '…', id: null, repr: null, cycle: true }); break; }
+    visited.add(id);
+    const attrs = current.attrs || {};
+    const valField = ['val', 'value', 'data', 'key', 'item'].find(f => f in attrs);
+    const val = valField != null ? flattenValue(attrs[valField]) : '?';
+    nodes.push({ val, id, repr: current });
+    const nextRepr = attrs.next;
+    if (!nextRepr || nextRepr.type === 'none') break;
+    current = nextRepr;
+    depth++;
+  }
+  return nodes;
+}
+
+/**
+ * Extract linked list data.
+ * Returns { name, nodes: [{val, id}], pointers: {id: [varName]} } or null.
+ */
+export function getLinkedList(locals, hints) {
+  if (!locals || !hints) return null;
+
+  const llNames = Object.entries(hints)
+    .filter(([, h]) => h === 'linked_list')
+    .map(([n]) => n);
+
+  if (llNames.length === 0) return null;
+
+  // Pick variable with longest traversal (most likely the true head)
+  let best = null;
+  for (const name of llNames) {
+    const repr = locals[name];
+    if (!repr || repr.type !== 'object') continue;
+    const nodes = traverseLinkedList(repr);
+    if (!best || nodes.length > best.nodes.length) {
+      best = { name, nodes, headRepr: repr };
+    }
+  }
+  if (!best || best.nodes.length === 0) return null;
+
+  // Build pointer map: object id → list of variable names pointing to it
+  const pointers = {};
+  const PTR_NAMES = ['head', 'tail', 'curr', 'current', 'prev', 'nxt', 'next',
+                     'slow', 'fast', 'p', 'q', 'node', 'ptr', 'temp', 't'];
+  const candidates = new Set([...llNames, ...PTR_NAMES]);
+  for (const varName of candidates) {
+    const repr = locals[varName];
+    if (repr && repr.type === 'object' && repr.id != null) {
+      if (!pointers[repr.id]) pointers[repr.id] = [];
+      if (!pointers[repr.id].includes(varName)) pointers[repr.id].push(varName);
+    }
+  }
+
+  return { name: best.name, nodes: best.nodes, pointers };
+}
+
+/**
+ * Extract stack/queue/deque for visualization.
+ * Returns { name, values, type } or null.
+ */
+export function getStackOrQueue(locals, hints) {
+  if (!locals || !hints) return null;
+  for (const [name, hint] of Object.entries(hints)) {
+    if (['stack', 'queue', 'deque'].includes(hint) && locals[name]) {
+      const flat = flattenValue(locals[name]);
+      if (Array.isArray(flat)) return { name, values: flat, type: hint };
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract heap array for visualization.
+ * Returns { name, values } or null.
+ */
+export function getHeap(locals, hints) {
+  if (!locals || !hints) return null;
+  for (const [name, hint] of Object.entries(hints)) {
+    if (hint === 'heap' && locals[name]) {
+      const flat = flattenValue(locals[name]);
+      if (Array.isArray(flat) && flat.length > 0) return { name, values: flat };
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract graph adjacency data.
+ * Returns { name, nodes, edges, directed } or null.
+ */
+export function getGraph(locals, hints) {
+  if (!locals || !hints) return null;
+  for (const [name, hint] of Object.entries(hints)) {
+    if (hint !== 'graph' || !locals[name]) continue;
+    const repr = locals[name];
+    if (repr.type !== 'dict') continue;
+    const nodeSet = new Set();
+    const edgeSet = new Set();
+    const edges = [];
+    for (const [key, valRepr] of Object.entries(repr.value || {})) {
+      nodeSet.add(key);
+      const neighbors = flattenValue(valRepr);
+      const list = Array.isArray(neighbors) ? neighbors : (neighbors instanceof Set ? [...neighbors] : []);
+      for (const nb of list) {
+        const nbStr = String(nb);
+        nodeSet.add(nbStr);
+        const edgeKey = `${key}->${nbStr}`;
+        if (!edgeSet.has(edgeKey)) { edgeSet.add(edgeKey); edges.push([key, nbStr]); }
+      }
+    }
+    const nodes = [...nodeSet];
+    // Detect directed: if every edge has a reverse, treat as undirected
+    const reverseCount = edges.filter(([a, b]) => edgeSet.has(`${b}->${a}`)).length;
+    const directed = reverseCount < edges.length;
+    return { name, nodes, edges, directed };
+  }
+  return null;
+}
+
+/**
+ * Extract hashmap/dict for visualization.
+ * Returns { name, entries } or null.
+ */
+export function getHashmap(locals, hints) {
+  if (!locals || !hints) return null;
+  for (const [name, hint] of Object.entries(hints)) {
+    if (hint === 'hashmap' && locals[name]) {
+      const repr = locals[name];
+      if (repr.type !== 'dict') continue;
+      const entries = Object.entries(repr.value || {}).slice(0, 40).map(([k, v]) => ({
+        key: k,
+        val: flattenValue(v),
+      }));
+      return { name, entries };
+    }
+  }
+  return null;
+}

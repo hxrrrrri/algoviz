@@ -1,0 +1,106 @@
+.ll { display: flex; flex-direction: column; gap: 14px; }
+
+.ll-header { display: flex; align-items: center; gap: 9px; }
+.ll-name  { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--accent); }
+.ll-type  { font-size: 10px; color: var(--text-3); background: var(--bg-card);
+            border: 1px solid var(--border-2); border-radius: 4px; padding: 1px 7px; }
+.ll-len   { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+
+.ll-stage { display: flex; flex-direction: column; gap: 0; overflow-x: auto; padding-bottom: 4px; }
+
+/* Pointer labels */
+.ll-ptr-row  { display: flex; align-items: flex-end; }
+.ll-ptr-slot { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.ll-ptr-tags { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ll-ptr-tag  {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--pc);
+  background: color-mix(in srgb, var(--pc) 16%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--pc) 38%, transparent);
+  border-radius: 5px; padding: 2px 7px; white-space: nowrap;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pc) 18%, transparent);
+}
+.ll-ptr-arrow {
+  width: 2px; height: 10px;
+  background: linear-gradient(to bottom, var(--pc), transparent);
+  border-radius: 1px; position: relative; margin-top: 2px;
+}
+.ll-ptr-arrow::after {
+  content: ''; position: absolute; bottom: -4px; left: -3px;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid var(--pc);
+}
+
+/* Nodes row */
+.ll-nodes-row { display: flex; align-items: center; }
+.ll-node-wrap { display: flex; align-items: center; flex-shrink: 0; }
+
+.ll-node {
+  position: relative; display: flex; align-items: center; overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--bg-card); border: 1.5px solid var(--border-1);
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 8px rgba(0,0,0,0.2);
+}
+.ll-node::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), transparent);
+  border-radius: var(--radius-md) var(--radius-md) 0 0; pointer-events: none;
+}
+
+.ll-val {
+  flex: 1; text-align: center;
+  font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text-1);
+  z-index: 1; padding: 0 6px;
+}
+.ll-next-field {
+  width: 18px; height: 100%; border-left: 1.5px solid var(--border-2);
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.02); flex-shrink: 0;
+}
+.ll-next-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--text-3); opacity: 0.5;
+}
+
+/* State variants */
+.ll-node-active { border-color: var(--accent-border); background: color-mix(in srgb, var(--accent) 6%, var(--bg-card)); }
+.ll-node-active .ll-next-dot { background: var(--accent); opacity: 0.8; }
+
+.ll-node-head {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
+  box-shadow: 0 0 20px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.ll-node-head .ll-val { color: var(--accent); }
+
+.ll-node-curr {
+  border-color: color-mix(in srgb, var(--accent-5) 75%, transparent);
+  background: color-mix(in srgb, var(--accent-5) 9%, var(--bg-card));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent-5) 28%, transparent);
+}
+.ll-node-curr .ll-val { color: var(--accent-5); }
+
+/* Connector arrow */
+.ll-connector {
+  display: flex; align-items: center; width: 44px; flex-shrink: 0; position: relative;
+}
+.ll-conn-line {
+  height: 2px; background: var(--border-1); flex: 1;
+}
+.ll-conn-head {
+  width: 0; height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--border-1);
+}
+
+/* NULL terminator */
+.ll-null-end { display: flex; align-items: center; }
+.ll-conn-short { width: 20px; flex: none; }
+.ll-null-box {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  color: var(--text-3); background: var(--bg-base);
+  border: 1.5px dashed var(--border-2); border-radius: var(--radius-sm);
+  padding: 4px 8px; white-space: nowrap; opacity: 0.6;
+}

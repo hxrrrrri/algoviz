@@ -146,12 +146,17 @@ def detect_structure_hints(locals_repr: Dict) -> Dict[str, str]:
             # Binary tree node
             elif "left" in keys and "right" in keys:
                 hints[name] = "tree_node"
-            # Graph adjacency list
-            elif name.lower() in ("graph", "adj", "adjacency", "edges"):
+            # Graph adjacency list (by name or by structure: dict of lists)
+            elif name.lower() in ("graph", "adj", "adjacency", "edges", "neighbors", "g"):
+                hints[name] = "graph"
+            elif v and all(
+                isinstance(vv, dict) and vv.get("type") in ("list", "set")
+                for vv in list(v.values())[:5]
+            ):
                 hints[name] = "graph"
             else:
-                hints[name] = "dict"
-        
+                hints[name] = "hashmap"
+
         elif t == "object":
             cls = obj.get("class", "").lower()
             attrs = set(obj.get("attrs", {}).keys())
@@ -161,19 +166,29 @@ def detect_structure_hints(locals_repr: Dict) -> Dict[str, str]:
                 hints[name] = "tree_node"
             elif cls in ("stack", "queue", "deque"):
                 hints[name] = cls
+            elif cls in ("defaultdict", "ordereddict", "counter"):
+                hints[name] = "hashmap"
+            # collections.deque — has _data/_maxlen or similar internals
+            elif cls == "deque":
+                hints[name] = "deque"
             else:
                 hints[name] = "object"
-        
+
         # Name-based fallbacks
         n = name.lower()
-        if n in ("stack",) and t == "list":
+        if n in ("stack", "stk") and t == "list":
             hints[name] = "stack"
-        elif n in ("queue", "q") and t == "list":
+        elif n in ("queue", "q", "bfs") and t == "list":
             hints[name] = "queue"
-        elif n in ("heap", "h") and t == "list":
+        elif n in ("deque", "dq") and t == "list":
+            hints[name] = "deque"
+        elif n in ("heap", "h", "min_heap", "max_heap", "pq") and t == "list":
             hints[name] = "heap"
-        elif n in ("graph", "adj", "adjacency") and t == "dict":
+        elif n in ("graph", "adj", "adjacency", "neighbors", "g", "edges") and t == "dict":
             hints[name] = "graph"
+        elif n in ("hashmap", "hmap", "freq", "count", "counts",
+                   "frequency", "memo", "cache") and t == "dict":
+            hints.setdefault(name, "hashmap")
         elif n in (
             "dp", "memo", "cache", "table", "tab",
             "dp_table", "dp_mat", "dp_matrix",

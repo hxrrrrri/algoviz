@@ -1,0 +1,41 @@
+.gv { display: flex; flex-direction: column; gap: 12px; }
+.gv-header { display: flex; align-items: center; gap: 9px; }
+.gv-name  { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--accent-5); }
+.gv-type  { font-size: 10px; color: var(--text-3); background: var(--bg-card);
+            border: 1px solid var(--border-2); border-radius: 4px; padding: 1px 7px; }
+.gv-stats { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+
+.gv-body { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+
+.gv-svg { overflow: visible; flex-shrink: 0; }
+
+.gv-edge  { stroke: var(--border-1); stroke-width: 1.5; fill: none; }
+.gv-arrow { stroke: var(--border-1); stroke-width: 1.5; fill: none; }
+
+.gv-node-g:hover .gv-node { stroke: var(--accent-5); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent-5) 40%, transparent)); }
+
+.gv-node {
+  fill: var(--bg-card); stroke: var(--border-1); stroke-width: 1.5;
+  transition: stroke 0.15s;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+}
+.gv-node-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  fill: var(--text-1); pointer-events: none; user-select: none;
+}
+
+/* Adjacency list panel */
+.gv-adj { display: flex; flex-direction: column; gap: 3px; min-width: 120px; }
+.gv-adj-title {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-3); border-bottom: 1px solid var(--border-2); padding-bottom: 5px; margin-bottom: 3px;
+}
+.gv-adj-row { display: flex; align-items: center; gap: 6px; }
+.gv-adj-node {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--accent-5);
+  background: color-mix(in srgb, var(--accent-5) 10%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--accent-5) 30%, transparent);
+  border-radius: 4px; padding: 1px 7px; min-width: 28px; text-align: center;
+}
+.gv-adj-arrow { color: var(--text-3); font-size: 11px; }
+.gv-adj-dsts  { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
