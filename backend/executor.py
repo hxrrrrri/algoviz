@@ -4,6 +4,7 @@ import traceback
 import threading
 import time
 import ast
+import math
 import builtins
 import warnings
 from typing import Any, Dict, List, Optional
@@ -80,6 +81,10 @@ def safe_repr(obj, depth=0, max_depth=4):
     elif isinstance(obj, int):
         return {"type": "int", "value": obj}
     elif isinstance(obj, float):
+        if math.isinf(obj):
+            return {"type": "float", "value": "∞" if obj > 0 else "-∞", "display": True}
+        if math.isnan(obj):
+            return {"type": "float", "value": "NaN", "display": True}
         return {"type": "float", "value": obj}
     elif isinstance(obj, str):
         return {"type": "str", "value": obj[:200]}  # truncate long strings
