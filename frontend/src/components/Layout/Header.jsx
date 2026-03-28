@@ -129,7 +129,7 @@ export default function Header() {
 
       {/* Brand */}
       <div className="hdr-brand">
-        <div className="hdr-logo">
+        <div className="hdr-logo" onClick={() => window.location.reload()} title="Code-Viz — reload" style={{ cursor: 'pointer' }}>
           {/* Premium glass logo icon */}
           <svg className="logo-svg" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>

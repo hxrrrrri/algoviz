@@ -7,6 +7,28 @@
   transition: background 0.35s;
 }
 
+/* ── Timeline footer positioning ── */
+/* TimelineFooter sits as a flex child after app-body, both fill remaining height */
+.app-root > .tlf {
+  flex-shrink: 0;
+  border-radius: 0;  /* full-width footer, no rounded corners */
+}
+/* Give glass chrome top edge to the footer too */
+[data-theme="glass"] .app-root > .tlf {
+  position: relative;
+}
+[data-theme="glass"] .app-root > .tlf::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px; z-index: 10;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,0.12) 20%,
+    rgba(255,255,255,0.18) 50%,
+    rgba(255,255,255,0.12) 80%,
+    transparent 100%);
+  pointer-events: none;
+}
+
 /* ── Ambient light orbs (glass theme) — metallic liquid chrome feel ── */
 .ambient-orb {
   position: fixed; border-radius: 50%;

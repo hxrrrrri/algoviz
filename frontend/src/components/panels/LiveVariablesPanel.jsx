@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
 import { displayValue, flattenValue } from '../../utils/vizMapper';
@@ -199,43 +199,10 @@ function VarRow({ name, repr, isNew, isChanged, prvStr, stepKey, isPinned, onPin
   );
 }
 
-/* ── Timeline ── */
-function Timeline({ history, current, onJump }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) {
-      const el = ref.current;
-      const active = el.children[current];
-      if (active) active.scrollIntoView({ inline:'nearest', block:'nearest' });
-      else el.scrollLeft = el.scrollWidth;
-    }
-  }, [current, history.length]);
-
-  return (
-    <div className="tl">
-      <div className="tl-header">
-        <span className="tl-label">TIMELINE</span>
-        <span className="tl-count">{current + 1} / {history.length}</span>
-      </div>
-      <div className="tl-track" ref={ref}>
-        {history.map((h, i) => (
-          <button key={i}
-            className={`tl-dot ${i===current?'tl-active':''} ${h.hasChange?'tl-change':''} ${h.hasError?'tl-error':''}`}
-            onClick={() => onJump(i)}
-            title={`Step ${i+1} · line ${h.line}`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ── Main Panel ── */
 export default function LiveVariablesPanel() {
   const trace          = useStore(s => s.trace);
   const currentStep    = useStore(s => s.currentStep);
-  const setCurrentStep = useStore(s => s.setCurrentStep);
-  const setPlaying     = useStore(s => s.setPlaying);
   const pinnedVars     = useStore(s => s.pinnedVars);
   const pinVar         = useStore(s => s.pinVar);
   const unpinVar       = useStore(s => s.unpinVar);
@@ -246,18 +213,6 @@ export default function LiveVariablesPanel() {
   const locals     = step?.locals  || {};
   const prevLocals = prevStep?.locals || {};
   const vars       = useMemo(() => diffLocals(locals, prevLocals), [locals, prevLocals]);
-
-  const history = useMemo(() => trace.map((s, i) => {
-    const p = i > 0 ? trace[i-1] : null;
-    const hasChange = p ? Object.keys(s.locals||{}).some(k => {
-      const cv = displayValue(s.locals[k], 120);
-      const pv = p.locals?.[k] ? displayValue(p.locals[k], 120) : null;
-      return pv !== null && cv !== pv;
-    }) : false;
-    return { line: s.line, hasChange, hasError: s.event === 'error' };
-  }), [trace]);
-
-  const jump = useCallback((i) => { setPlaying(false); setCurrentStep(i); }, [setPlaying, setCurrentStep]);
 
   const callStack = step?.call_stack || [];
   const stdout    = step?.stdout || '';
@@ -352,10 +307,6 @@ export default function LiveVariablesPanel() {
         </div>
       )}
 
-      {/* Timeline */}
-      {trace.length > 0 && (
-        <Timeline history={history} current={currentStep} onJump={jump} />
-      )}
     </div>
   );
 }

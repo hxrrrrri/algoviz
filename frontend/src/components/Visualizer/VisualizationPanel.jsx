@@ -1,13 +1,14 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
 import ArrayVisualizer from './ArrayVisualizer';
 import MatrixVisualizer from './MatrixVisualizer';
 import TreeVisualizer from './TreeVisualizer';
+import FlowVisualizer from './FlowVisualizer';
 import { getPrimaryArray, getMatrix, getTreeNode, getStrings, flattenValue } from '../../utils/vizMapper';
 import './VisualizationPanel.css';
 
-/* ── String row visualizer (inline) ── */
+/* ── String row visualizer ── */
 function StringBar({ name, value }) {
   const chars = Array.from(value);
   return (
@@ -29,7 +30,7 @@ function StringBar({ name, value }) {
   );
 }
 
-/* ── Cell-change diffing ── */
+/* ── Cell-change diffing for pinned vars ── */
 function cellKey(v) {
   if (v === null || v === undefined) return 'null';
   if (typeof v === 'object') return JSON.stringify(v);
@@ -187,15 +188,43 @@ export default function VisualizationPanel() {
   const hasTrace = trace.length > 0;
 
   const [dragOver, setDragOver] = useState(false);
+  const [vizMode, setVizMode]   = useState('structure'); // 'structure' | 'flow'
 
   const locals  = step?.locals  || {};
   const hints   = step?.structure_hints || {};
+  const prevLocals = prevStep?.locals || {};
+  const prevHints  = prevStep?.structure_hints || {};
 
   const hasArray  = useMemo(() => step ? !!getPrimaryArray(locals, hints) : false, [step, locals, hints]);
   const hasMatrix = useMemo(() => step ? !!getMatrix(locals, hints)       : false, [step, locals, hints]);
   const treeData  = useMemo(() => step ? getTreeNode(locals, hints)       : null,  [step, locals, hints]);
   const strings   = useMemo(() => step ? getStrings(locals)               : [],    [step, locals]);
 
+  // Previous step tree for new-node diffing
+  const prevTreeData = useMemo(() => prevStep ? getTreeNode(prevLocals, prevHints) : null, [prevStep, prevLocals, prevHints]);
+
+  /* ── Persistence: remember last valid structure content ── */
+  const lastStructRef = useRef({ locals: {}, hints: {}, strings: [], stepData: null });
+  const hasStructContent = hasArray || hasMatrix || !!treeData || strings.length > 0;
+
+  if (step && hasStructContent) {
+    lastStructRef.current = { locals, hints, strings, stepData: step };
+  }
+
+  // Use last known content when current step has no structure
+  const dispLocals   = hasStructContent ? locals  : lastStructRef.current.locals;
+  const dispHints    = hasStructContent ? hints   : lastStructRef.current.hints;
+  const dispStrings  = hasStructContent ? strings : lastStructRef.current.strings;
+  const dispStep     = hasStructContent ? step    : lastStructRef.current.stepData;
+  const isStale      = !hasStructContent && !!lastStructRef.current.stepData;
+
+  const dispHasArray  = useMemo(() => dispStep ? !!getPrimaryArray(dispLocals, dispHints) : false, [dispStep, dispLocals, dispHints]);
+  const dispHasMatrix = useMemo(() => dispStep ? !!getMatrix(dispLocals, dispHints)       : false, [dispStep, dispLocals, dispHints]);
+  const dispTreeData  = useMemo(() => dispStep ? getTreeNode(dispLocals, dispHints)       : null,  [dispStep, dispLocals, dispHints]);
+
+  const hasAnyContent = dispHasArray || dispHasMatrix || !!dispTreeData || dispStrings.length > 0 || pinnedVars.length > 0;
+
+  /* ── Drag-and-drop ── */
   const handleDragOver  = useCallback((e) => {
     if (e.dataTransfer.types.includes('application/codeviz-var')) {
       e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDragOver(true);
@@ -209,15 +238,12 @@ export default function VisualizationPanel() {
   }, [pinVar]);
 
   const pinnedData = useMemo(() => {
-    const prevLocals = prevStep?.locals || {};
     return pinnedVars.map(name => ({
       name,
       repr:     locals[name]     || null,
       prevRepr: prevLocals[name] || null,
     }));
-  }, [pinnedVars, locals, prevStep]);
-
-  const hasAnyContent = hasArray || hasMatrix || !!treeData || strings.length > 0 || pinnedVars.length > 0;
+  }, [pinnedVars, locals, prevLocals]);
 
   return (
     <div
@@ -228,17 +254,19 @@ export default function VisualizationPanel() {
     >
       <div className="vp-grid" />
 
+      {/* Drop overlay */}
       <AnimatePresence>
         {dragOver && (
           <motion.div className="vp-drop-overlay"
             initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
             transition={{ duration:0.12 }}>
             <div className="vp-drop-icon">◎</div>
-            <div className="vp-drop-text">Drop to visualize</div>
+            <div className="vp-drop-text">Drop to pin & visualize</div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Topbar */}
       <div className="vp-topbar">
         <div className="vp-topbar-l">
           <div className="vp-title-dot" />
@@ -246,103 +274,152 @@ export default function VisualizationPanel() {
           {pinnedVars.length > 0 && (
             <span className="vp-pinned-count">{pinnedVars.length} pinned</span>
           )}
+          {isStale && (
+            <span className="vp-stale-badge">frozen</span>
+          )}
         </div>
-        {hasTrace && (
-          <div className="vp-step-info">
-            <span className="vp-step-n">{currentStep + 1}</span>
-            <span className="vp-step-of">/ {trace.length}</span>
-            {step?.line && <span className="vp-step-line">· ln {step.line}</span>}
-          </div>
-        )}
+
+        <div className="vp-topbar-r">
+          {hasTrace && (
+            <div className="vp-step-info">
+              <span className="vp-step-n">{currentStep + 1}</span>
+              <span className="vp-step-of">/ {trace.length}</span>
+              {step?.line && <span className="vp-step-line">· ln {step.line}</span>}
+            </div>
+          )}
+
+          {/* Structure / Flow toggle */}
+          {hasTrace && (
+            <div className="vp-mode-toggle">
+              <button
+                className={`vp-mode-btn ${vizMode === 'structure' ? 'vp-mode-active' : ''}`}
+                onClick={() => setVizMode('structure')}
+                title="Structure view — arrays, trees, matrices"
+              >
+                ⬡ Structure
+              </button>
+              <button
+                className={`vp-mode-btn ${vizMode === 'flow' ? 'vp-mode-active' : ''}`}
+                onClick={() => setVizMode('flow')}
+                title="Flow view — call stack, variables, execution trace"
+              >
+                ⟳ Flow
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Content */}
       <div className="vp-content">
-        {/* Empty state */}
-        {!hasTrace && pinnedVars.length === 0 && (
-          <div className="vp-empty">
-            <div className="vp-empty-ring">
-              <div className="vp-empty-logo">⟨/⟩</div>
-            </div>
-            <div className="vp-empty-title">Code-Viz</div>
-            <div className="vp-empty-sub">Write an algorithm and run it<br/>to see live visualization</div>
-            <div className="vp-empty-hint">Drag any list, tree or matrix from Variables →</div>
-            <div className="vp-empty-kbd">Ctrl + Enter to run</div>
+
+        {/* ── Flow mode ── */}
+        {vizMode === 'flow' && hasTrace && (
+          <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+            <FlowVisualizer
+              step={step}
+              prevStep={prevStep}
+              trace={trace}
+              currentStep={currentStep}
+            />
           </div>
         )}
 
-        {/* Error banner */}
-        {hasTrace && isError && step?.error && (
-          <motion.div className="vp-err-banner"
-            initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}>
-            <div className="vp-err-icon">⚠</div>
-            <div>
-              <div className="vp-err-type">{step.error.type}</div>
-              <div className="vp-err-msg">
-                {step.error.message}{step.error.line ? ` — line ${step.error.line}` : ''}
+        {/* ── Structure mode ── */}
+        {vizMode === 'structure' && (
+          <>
+            {/* Empty state */}
+            {!hasTrace && pinnedVars.length === 0 && (
+              <div className="vp-empty">
+                <div className="vp-empty-ring">
+                  <div className="vp-empty-logo">⟨/⟩</div>
+                </div>
+                <div className="vp-empty-title">Code-Viz</div>
+                <div className="vp-empty-sub">Write an algorithm and run it<br/>to see live visualization</div>
+                <div className="vp-empty-hint">Drag any list, tree or matrix from Variables →</div>
+                <div className="vp-empty-kbd">Ctrl + Enter to run</div>
               </div>
-            </div>
-          </motion.div>
-        )}
+            )}
 
-        {/* String variables */}
-        {hasTrace && strings.length > 0 && (
-          <div className="vp-section">
-            {strings.map(s => <StringBar key={s.name} name={s.name} value={s.value} />)}
-          </div>
-        )}
+            {/* Error banner */}
+            {hasTrace && isError && step?.error && (
+              <motion.div className="vp-err-banner"
+                initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}>
+                <div className="vp-err-icon">⚠</div>
+                <div>
+                  <div className="vp-err-type">{step.error.type}</div>
+                  <div className="vp-err-msg">
+                    {step.error.message}{step.error.line ? ` — line ${step.error.line}` : ''}
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
-        {/* Auto-detected array */}
-        {hasTrace && hasArray && (
-          <AnimatePresence>
-            <motion.div key="arr" className="vp-section"
-              initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-              <ArrayVisualizer stepData={step} />
-            </motion.div>
-          </AnimatePresence>
-        )}
+            {/* Strings */}
+            {hasTrace && dispStrings.length > 0 && (
+              <div className="vp-section">
+                {dispStrings.map(s => <StringBar key={s.name} name={s.name} value={s.value} />)}
+              </div>
+            )}
 
-        {/* Auto-detected DP matrix */}
-        {hasTrace && hasMatrix && !hasArray && (
-          <AnimatePresence>
-            <motion.div key="mat" className="vp-section"
-              initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-              <MatrixVisualizer stepData={step} />
-            </motion.div>
-          </AnimatePresence>
-        )}
+            {/* Array */}
+            {hasTrace && dispHasArray && (
+              <AnimatePresence>
+                <motion.div key="arr" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <ArrayVisualizer stepData={dispStep} />
+                </motion.div>
+              </AnimatePresence>
+            )}
 
-        {/* Auto-detected tree */}
-        {hasTrace && treeData && (
-          <AnimatePresence>
-            <motion.div key="tree" className="vp-section"
-              initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-              <TreeVisualizer name={treeData.name} repr={treeData.repr} />
-            </motion.div>
-          </AnimatePresence>
-        )}
+            {/* Matrix */}
+            {hasTrace && dispHasMatrix && !dispHasArray && (
+              <AnimatePresence>
+                <motion.div key="mat" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <MatrixVisualizer stepData={dispStep} />
+                </motion.div>
+              </AnimatePresence>
+            )}
 
-        {/* No structure hint */}
-        {hasTrace && !hasAnyContent && !isError && (
-          <div className="vp-no-struct">
-            <div className="vp-no-struct-icon">◇</div>
-            <div>No structure detected yet</div>
-            <div className="vp-no-struct-hint">Drag variables from the Variables panel →</div>
-          </div>
-        )}
+            {/* Tree */}
+            {hasTrace && dispTreeData && (
+              <AnimatePresence>
+                <motion.div key="tree" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <TreeVisualizer
+                    name={dispTreeData.name}
+                    repr={dispTreeData.repr}
+                    prevRepr={prevTreeData?.repr || null}
+                  />
+                </motion.div>
+              </AnimatePresence>
+            )}
 
-        {/* Pinned variables */}
-        {pinnedData.length > 0 && (
-          <div className="vp-pinned-section">
-            {hasAnyContent && <div className="vp-pinned-divider">Pinned Variables</div>}
-            <AnimatePresence>
-              {pinnedData.map(({ name, repr, prevRepr }) =>
-                repr && (
-                  <PinnedVarView key={name} name={name} repr={repr}
-                    prevRepr={prevRepr} onUnpin={unpinVar} />
-                )
-              )}
-            </AnimatePresence>
-          </div>
+            {/* No structure detected */}
+            {hasTrace && !hasAnyContent && !isError && (
+              <div className="vp-no-struct">
+                <div className="vp-no-struct-icon">◇</div>
+                <div>No structure detected</div>
+                <div className="vp-no-struct-hint">Switch to Flow view to see execution →</div>
+              </div>
+            )}
+
+            {/* Pinned variables */}
+            {pinnedData.length > 0 && (
+              <div className="vp-pinned-section">
+                {hasAnyContent && <div className="vp-pinned-divider">Pinned Variables</div>}
+                <AnimatePresence>
+                  {pinnedData.map(({ name, repr, prevRepr }) =>
+                    repr && (
+                      <PinnedVarView key={name} name={name} repr={repr}
+                        prevRepr={prevRepr} onUnpin={unpinVar} />
+                    )
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

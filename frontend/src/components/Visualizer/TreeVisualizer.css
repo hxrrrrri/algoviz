@@ -1,19 +1,20 @@
-/* ── Tree Visualizer ── */
+/* ══ Tree Visualizer ══ */
 .tv {
   display: flex; flex-direction: column; gap: 10px;
 }
 
+/* Label row */
 .tv-label {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono); flex-wrap: wrap;
 }
 .tv-name {
   font-size: 13px; font-weight: 700; color: var(--text-1);
 }
 .tv-type-badge {
   font-size: 9px; font-weight: 600; color: var(--accent-2);
-  background: rgba(129,140,248,0.12);
-  border: 1px solid rgba(129,140,248,0.25);
+  background: rgba(124,132,240,0.12);
+  border: 1px solid rgba(124,132,240,0.25);
   border-radius: 5px; padding: 1px 7px; letter-spacing: 0.04em;
 }
 .tv-count {
@@ -21,52 +22,113 @@
   background: var(--bg-card); border: 1px solid var(--border-2);
   border-radius: 5px; padding: 1px 6px;
 }
+.tv-new-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  color: #000; background: var(--accent);
+  border-radius: 5px; padding: 1px 7px;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
 
+/* Scroll wrapper */
 .tv-scroll {
   overflow: auto; border-radius: var(--radius-md);
   background: var(--bg-base); border: 1px solid var(--border-2);
-  padding: 12px;
+  padding: 16px;
+}
+[data-theme="glass"] .tv-scroll {
+  background: rgba(255,255,255,0.02);
 }
 
-.tv-svg {
-  display: block; overflow: visible;
-}
+.tv-svg { display: block; overflow: visible; }
 
-/* Edges */
+/* ── Edges ── */
 .tv-edge {
-  stroke: var(--border-1);
+  stroke: var(--text-3);
   stroke-width: 1.8;
   stroke-linecap: round;
+  opacity: 0.55;
+  fill: none;
 }
-[data-theme="glass"] .tv-edge {
-  stroke: rgba(255,255,255,0.12);
+[data-theme="glass"] .tv-edge { stroke: rgba(255,255,255,0.18); }
+.tv-edge-new {
+  stroke: var(--accent) !important;
+  opacity: 0.9 !important;
+  stroke-width: 2px;
 }
 
-/* Node glow ring */
+/* Null leaf dashed edge */
+.tv-null-edge {
+  stroke: var(--border-1);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+  opacity: 0.45;
+}
+
+/* Edge direction labels */
+.tv-edge-label {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  fill: var(--text-3); opacity: 0.65; pointer-events: none;
+}
+
+/* Null leaf squares */
+.tv-null-leaf {
+  fill: var(--bg-card); stroke: var(--border-1);
+  stroke-width: 1.2; stroke-dasharray: 3 2;
+  opacity: 0.6;
+}
+.tv-null-text {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  fill: var(--text-4); pointer-events: none;
+}
+
+/* ── Node glow rings ── */
 .tv-node-glow {
   fill: none;
   stroke: var(--accent-2);
   stroke-width: 0.8;
-  opacity: 0.25;
-  filter: blur(2px);
+  opacity: 0.18;
+  filter: blur(3px);
+}
+.tv-node-glow-new {
+  stroke: var(--accent) !important;
+  opacity: 0.35 !important;
+}
+.tv-node-new-halo {
+  fill: var(--accent);
+  opacity: 0;
 }
 
-/* Node circle body */
+/* ── Node circles ── */
 .tv-node {
   fill: var(--bg-card);
   stroke: var(--accent-2);
-  stroke-width: 1.8;
-  filter: drop-shadow(0 0 6px rgba(129,140,248,0.3));
+  stroke-width: 2;
+  filter: drop-shadow(0 0 7px rgba(124,132,240,0.28));
 }
 [data-theme="glass"] .tv-node {
-  fill: rgba(129,140,248,0.08);
+  fill: rgba(124,132,240,0.10);
   stroke: var(--accent-2);
 }
+.tv-node-new {
+  stroke: var(--accent) !important;
+  fill: rgba(45,212,160,0.14) !important;
+  filter: drop-shadow(0 0 10px rgba(45,212,160,0.5)) !important;
+}
 
-/* Node value text */
+/* ── Node value text ── */
 .tv-node-val {
   font-family: var(--font-mono);
   font-size: 12px; font-weight: 700;
   fill: var(--text-1);
+  pointer-events: none;
+}
+.tv-node-val-new {
+  fill: var(--accent) !important;
+}
+
+/* ── Depth label ── */
+.tv-depth-label {
+  font-family: var(--font-mono); font-size: 8px;
+  fill: var(--text-3); opacity: 0.55;
   pointer-events: none;
 }

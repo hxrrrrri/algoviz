@@ -1,10 +1,11 @@
-import React, { useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import useStore from './store';
 import Header from './components/Layout/Header';
 import Controls from './components/Controls/Controls';
 import CodeEditor from './components/Editor/CodeEditor';
 import VisualizationPanel from './components/Visualizer/VisualizationPanel';
 import LiveVariablesPanel from './components/panels/LiveVariablesPanel';
+import TimelineFooter from './components/Timeline/TimelineFooter';
 import './styles/globals.css';
 import './App.css';
 
@@ -14,10 +15,9 @@ export default function App() {
   const theme = useStore(s => s.theme);
   const mode  = useStore(s => s.mode);
 
-  // Apply theme attrs to <html>
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    document.documentElement.setAttribute('data-mode', mode);
+    document.documentElement.setAttribute('data-mode',  mode);
   }, [theme, mode]);
 
   const handleKeyDown = useCallback((e) => {
@@ -34,7 +34,7 @@ export default function App() {
 
   return (
     <div className="app-root">
-      {/* Ambient background */}
+      {/* Ambient background orbs */}
       <div className="ambient-orb orb-1" />
       <div className="ambient-orb orb-2" />
       <div className="ambient-orb orb-3" />
@@ -49,7 +49,7 @@ export default function App() {
 
         <div className="panel-divider" />
 
-        {/* Right: viz + vars stacked */}
+        {/* Right column */}
         <div className="panel-right">
           <div className="panel-right-top">
             <div className="panel-viz">
@@ -63,6 +63,9 @@ export default function App() {
           <Controls />
         </div>
       </div>
+
+      {/* Full-width timeline footer */}
+      <TimelineFooter />
     </div>
   );
 }

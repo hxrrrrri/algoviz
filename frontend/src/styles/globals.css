@@ -6,63 +6,63 @@
    THEME: GLASS (Apple-style glassmorphism)
    ══════════════════════════════════════════════ */
 [data-theme="glass"][data-mode="dark"] {
-  /* ── Obsidian-glass dark base ── */
-  --bg-root:    #020206;
-  --bg-base:    #06060e;
-  --bg-panel:   rgba(10,10,20,0.88);
-  --bg-card:    rgba(255,255,255,0.038);
-  --bg-card-hv: rgba(255,255,255,0.065);
-  --bg-input:   rgba(255,255,255,0.052);
+  /* ── Near-black obsidian base (GitHub-inspired depth) ── */
+  --bg-root:    #090c12;
+  --bg-base:    #0d111c;
+  --bg-panel:   rgba(13,17,28,0.94);
+  --bg-card:    rgba(22,28,46,0.65);
+  --bg-card-hv: rgba(30,38,60,0.80);
+  --bg-input:   rgba(18,24,38,0.80);
 
-  /* Frosted glass effect */
-  --glass-blur:   blur(36px) saturate(220%) brightness(1.06);
-  --glass-border: rgba(255,255,255,0.12);
-  /* Top-left chrome highlight diagonal */
+  /* Frosted glass */
+  --glass-blur:   blur(40px) saturate(200%) brightness(1.05);
+  --glass-border: rgba(255,255,255,0.10);
   --glass-shine: linear-gradient(135deg,
-    rgba(255,255,255,0.22) 0%,
-    rgba(255,255,255,0.06) 30%,
-    transparent 60%);
+    rgba(255,255,255,0.18) 0%,
+    rgba(255,255,255,0.05) 35%,
+    transparent 65%);
 
   /* Chrome edge tokens */
-  --chrome-top:    rgba(255,255,255,0.24);
-  --chrome-side:   rgba(255,255,255,0.07);
-  --chrome-bottom: rgba(0,0,0,0.35);
+  --chrome-top:    rgba(255,255,255,0.20);
+  --chrome-side:   rgba(255,255,255,0.06);
+  --chrome-bottom: rgba(0,0,0,0.40);
 
-  /* Jewel accents — slightly desaturated for luxury feel */
+  /* Jewel accents */
   --accent:        #2dd4a0;
-  --accent-2:      #7c84f0;
-  --accent-3:      #f472a0;
-  --accent-4:      #f8bc30;
-  --accent-5:      #38c0f8;
-  --accent-glow:   rgba(45,212,160,0.30);
-  --accent-dim:    rgba(45,212,160,0.10);
-  --accent-border: rgba(45,212,160,0.26);
+  --accent-2:      #818cf8;
+  --accent-3:      #f472b6;
+  --accent-4:      #fbbf24;
+  --accent-5:      #38bdf8;
+  --accent-glow:   rgba(45,212,160,0.28);
+  --accent-dim:    rgba(45,212,160,0.09);
+  --accent-border: rgba(45,212,160,0.22);
 
-  --text-1: #eeeef8;
-  --text-2: #9090a8;
-  --text-3: #424255;
-  --text-4: #202030;
+  --text-1: #e2e8f0;
+  --text-2: #8892a4;
+  --text-3: #3d4560;
+  --text-4: #1e2235;
 
-  --border-1: rgba(255,255,255,0.08);
-  --border-2: rgba(255,255,255,0.042);
-  --border-accent: rgba(45,212,160,0.24);
+  /* Glassy-grey borders — more neutral than pure white */
+  --border-1: rgba(148,163,184,0.10);
+  --border-2: rgba(148,163,184,0.055);
+  --border-accent: rgba(45,212,160,0.22);
 
-  --change-bg:     rgba(248,188,48,0.13);
-  --change-border: rgba(248,188,48,0.58);
-  --change-text:   #f8bc30;
-  --change-glow:   rgba(248,188,48,0.32);
+  --change-bg:     rgba(251,191,36,0.11);
+  --change-border: rgba(251,191,36,0.55);
+  --change-text:   #fbbf24;
+  --change-glow:   rgba(251,191,36,0.28);
 
-  /* Deep chrome shadow */
+  /* Layered chrome shadow */
   --shadow-card:
-    0 2px 0 rgba(255,255,255,0.05),        /* outer top glow */
-    0 12px 48px rgba(0,0,0,0.60),
-    0 4px 16px rgba(0,0,0,0.40),
-    inset 0 1px 0 var(--chrome-top),       /* inner chrome top */
-    inset 0 -1px 0 var(--chrome-bottom),   /* inner bottom shadow */
-    inset 1px 0 0 var(--chrome-side),      /* inner left edge */
-    inset -1px 0 0 rgba(255,255,255,0.04); /* inner right edge */
-  --shadow-glow: 0 0 60px rgba(45,212,160,0.10);
-  --shadow-btn:  0 4px 20px rgba(45,212,160,0.35), inset 0 1px 0 rgba(255,255,255,0.22);
+    0 2px 0 rgba(255,255,255,0.04),
+    0 16px 56px rgba(0,0,0,0.70),
+    0 4px 18px rgba(0,0,0,0.45),
+    inset 0 1px 0 var(--chrome-top),
+    inset 0 -1px 0 var(--chrome-bottom),
+    inset 1px 0 0 var(--chrome-side),
+    inset -1px 0 0 rgba(255,255,255,0.03);
+  --shadow-glow: 0 0 60px rgba(45,212,160,0.08);
+  --shadow-btn:  0 4px 20px rgba(45,212,160,0.32), inset 0 1px 0 rgba(255,255,255,0.20);
 }
 
 [data-theme="glass"][data-mode="light"] {
