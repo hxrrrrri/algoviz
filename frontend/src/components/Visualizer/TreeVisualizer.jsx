@@ -4,8 +4,8 @@ import { flattenValue } from '../../utils/vizMapper';
 import './TreeVisualizer.css';
 
 const NODE_R = 28;
-const H_STEP = 72;    // horizontal gap between in-order positions
-const V_GAP  = 96;    // vertical gap between levels
+const H_STEP = 80;    // horizontal gap between in-order positions
+const V_GAP  = 110;   // vertical gap between levels — enough room for crossbar + labels
 const PAD    = 48;    // padding around the entire tree
 
 /* ────────────────────────────────────────────────
@@ -81,12 +81,14 @@ function collectNullLeaves(node, arr = []) {
   return arr;
 }
 
-/* Clean elbow path: straight down from parent, diagonal to child, straight into child */
+/* Orthogonal T-junction:
+   parent → straight down to midpoint Y → horizontal → straight down to child
+   This is the canonical clean tree-edge layout used by all serious visualizers. */
 function edgePath(px, py, cx, cy) {
-  const sy = py + NODE_R;       // start: bottom edge of parent circle
-  const ey = cy - NODE_R;       // end:   top edge of child circle
-  const stub = Math.min(14, (ey - sy) * 0.22); // short vertical stub length
-  return `M ${px},${sy} L ${px},${sy + stub} L ${cx},${ey - stub} L ${cx},${ey}`;
+  const sy   = py + NODE_R;         // bottom of parent circle
+  const ey   = cy - NODE_R;         // top of child circle
+  const midY = (sy + ey) / 2;       // horizontal cross-bar Y
+  return `M ${px},${sy} L ${px},${midY} L ${cx},${midY} L ${cx},${ey}`;
 }
 
 /* ════════════════════════════════════════════════
@@ -218,8 +220,12 @@ export default function TreeVisualizer({ name, repr, prevRepr }) {
           <AnimatePresence>
             {edges.map((e, i) => {
               const d = edgePath(e.px, e.py, e.cx, e.cy);
-              const labelX = e.dir === 'L' ? e.px - 16 : e.px + 16;
-              const labelY = e.py + NODE_R + 16;
+              // Label sits on the vertical drop segment, just below the crossbar
+              const sy   = e.py + NODE_R;
+              const ey   = e.cy - NODE_R;
+              const midY = (sy + ey) / 2;
+              const labelX = e.cx + (e.dir === 'L' ? -11 : 11);
+              const labelY = midY + 10;
               return (
                 <g key={`e-${e.px}-${e.py}-${e.dir}`}>
                   {/* Glow copy behind the edge for new edges */}
@@ -236,7 +242,7 @@ export default function TreeVisualizer({ name, repr, prevRepr }) {
                     className={`tv-edge ${e.newChild ? 'tv-edge-new' : ''}`}
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 0.55, delay: i * 0.08, ease: 'easeOut' }}
+                    transition={{ duration: 0.6, delay: i * 0.07, ease: 'easeOut' }}
                   />
                   <text x={labelX} y={labelY} textAnchor="middle" className="tv-edge-label">
                     {e.dir}

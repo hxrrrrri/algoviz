@@ -44,17 +44,17 @@
 
 /* ── Edges ── */
 .tv-edge {
-  stroke: var(--accent-2);
+  stroke: rgba(148,163,184,0.35);
   stroke-width: 1.5;
-  stroke-linecap: square;
+  stroke-linecap: butt;
   stroke-linejoin: miter;
-  opacity: 0.45;
+  opacity: 1;
   fill: none;
 }
-[data-theme="glass"] .tv-edge { stroke: rgba(148,163,184,0.30); }
+[data-theme="glass"] .tv-edge { stroke: rgba(148,163,184,0.28); }
 .tv-edge-new {
   stroke: var(--accent) !important;
-  opacity: 0.85 !important;
+  opacity: 1 !important;
   stroke-width: 2px;
 }
 
