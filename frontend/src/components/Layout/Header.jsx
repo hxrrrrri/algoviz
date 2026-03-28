@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sun, Moon, Sparkles, Film } from 'lucide-react';
+import { Sun, Moon, Sparkles, Film, Github } from 'lucide-react';
 import useStore from '../../store';
 import './Header.css';
 
@@ -243,6 +243,17 @@ export default function Header() {
         </div>
 
         <div className="hdr-badge">Python 3</div>
+
+        <a
+          className="github-btn"
+          href="https://github.com/hxrrrrri"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="GitHub — hxrrrrri"
+        >
+          <Github size={13} />
+          <span>GitHub</span>
+        </a>
       </div>
     </header>
   );

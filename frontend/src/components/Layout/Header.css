@@ -205,6 +205,21 @@
 }
 .sample-row:hover .sample-dot { opacity: 1; }
 
+/* GitHub button */
+.github-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg-card); border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm); padding: 5px 12px;
+  font-size: 11px; font-weight: 500; color: var(--text-2);
+  text-decoration: none; cursor: pointer; transition: all 0.16s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 1px 4px rgba(0,0,0,0.2);
+}
+.github-btn:hover {
+  border-color: rgba(255,255,255,0.18); color: var(--text-1);
+  background: var(--bg-card-hv);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 8px rgba(0,0,0,0.2);
+}
+
 /* Python badge */
 .hdr-badge {
   font-size: 10px; font-weight: 500; color: var(--text-3);
