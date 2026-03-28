@@ -346,3 +346,44 @@
   font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2);
   white-space: pre-wrap; word-break: break-all; line-height: 1.6;
 }
+
+/* ── Console output ── */
+.vp-console {
+  margin: 0 0 4px 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  border: 1px solid var(--border-2);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.vp-console-hdr {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 12px 5px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-2);
+}
+.vp-console-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-3); flex-shrink: 0;
+  box-shadow: 0 0 6px var(--accent-3);
+}
+.vp-console-title {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-3);
+}
+.vp-console-count {
+  font-family: var(--font-mono); font-size: 9px; color: var(--text-4);
+  background: var(--bg-card); border: 1px solid var(--border-2);
+  border-radius: 10px; padding: 0 6px; margin-left: auto;
+}
+.vp-console-body {
+  padding: 6px 0; max-height: 120px; overflow-y: auto;
+}
+.vp-console-row {
+  display: flex; gap: 8px;
+  padding: 2px 12px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-2); line-height: 1.65;
+}
+.vp-console-arrow { color: var(--accent-3); flex-shrink: 0; }
+.vp-console-text  { white-space: pre-wrap; word-break: break-all; }

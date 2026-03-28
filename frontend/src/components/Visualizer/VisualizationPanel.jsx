@@ -8,6 +8,28 @@ import FlowVisualizer from './FlowVisualizer';
 import { getPrimaryArray, getMatrix, getTreeNode, getStrings, flattenValue } from '../../utils/vizMapper';
 import './VisualizationPanel.css';
 
+/* ── Console output ── */
+function ConsoleOutput({ stdout }) {
+  const lines = stdout.trim().split('\n').slice(-20);
+  return (
+    <div className="vp-console">
+      <div className="vp-console-hdr">
+        <span className="vp-console-dot" />
+        <span className="vp-console-title">Output</span>
+        <span className="vp-console-count">{lines.length} line{lines.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="vp-console-body">
+        {lines.map((l, i) => (
+          <div key={i} className="vp-console-row">
+            <span className="vp-console-arrow">›</span>
+            <span className="vp-console-text">{l}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── String row visualizer ── */
 function StringBar({ name, value }) {
   const chars = Array.from(value);
@@ -339,6 +361,11 @@ export default function VisualizationPanel() {
                 <div className="vp-empty-hint">Drag any list, tree or matrix from Variables →</div>
                 <div className="vp-empty-kbd">Ctrl + Enter to run</div>
               </div>
+            )}
+
+            {/* Console output */}
+            {hasTrace && step?.stdout?.trim() && (
+              <ConsoleOutput stdout={step.stdout} />
             )}
 
             {/* Error banner */}
