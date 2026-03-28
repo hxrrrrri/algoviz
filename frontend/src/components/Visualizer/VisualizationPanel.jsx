@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
 import ArrayVisualizer from './ArrayVisualizer';
@@ -6,6 +6,7 @@ import MatrixVisualizer from './MatrixVisualizer';
 import TreeVisualizer from './TreeVisualizer';
 import FlowVisualizer from './FlowVisualizer';
 import { getPrimaryArray, getMatrix, getTreeNode, getStrings, flattenValue } from '../../utils/vizMapper';
+import { analyzeComplexity, complexityColor } from '../../utils/complexityAnalyzer';
 import './VisualizationPanel.css';
 
 /* ── Console output ── */
@@ -198,11 +199,13 @@ function PinnedVarView({ name, repr, prevRepr, onUnpin }) {
 
 /* ══ Main Panel ══ */
 export default function VisualizationPanel() {
-  const trace       = useStore(s => s.trace);
-  const currentStep = useStore(s => s.currentStep);
-  const pinnedVars  = useStore(s => s.pinnedVars);
-  const pinVar      = useStore(s => s.pinVar);
-  const unpinVar    = useStore(s => s.unpinVar);
+  const trace          = useStore(s => s.trace);
+  const currentStep    = useStore(s => s.currentStep);
+  const pinnedVars     = useStore(s => s.pinnedVars);
+  const pinVar         = useStore(s => s.pinVar);
+  const unpinVar       = useStore(s => s.unpinVar);
+  const resetExecution = useStore(s => s.resetExecution);
+  const code           = useStore(s => s.code);
 
   const step     = trace[currentStep] || null;
   const prevStep = currentStep > 0 ? trace[currentStep - 1] : null;
@@ -225,8 +228,19 @@ export default function VisualizationPanel() {
   // Previous step tree for new-node diffing
   const prevTreeData = useMemo(() => prevStep ? getTreeNode(prevLocals, prevHints) : null, [prevStep, prevLocals, prevHints]);
 
+  /* ── Complexity analysis ── */
+  const complexity = useMemo(() => analyzeComplexity(code), [code]);
+
   /* ── Persistence: remember last valid structure content ── */
   const lastStructRef = useRef({ locals: {}, hints: {}, strings: [], stepData: null });
+
+  // Reset persisted content when trace is cleared (e.g. user hits refresh)
+  useEffect(() => {
+    if (trace.length === 0) {
+      lastStructRef.current = { locals: {}, hints: {}, strings: [], stepData: null };
+    }
+  }, [trace.length]);
+
   const hasStructContent = hasArray || hasMatrix || !!treeData || strings.length > 0;
 
   if (step && hasStructContent) {
@@ -302,12 +316,33 @@ export default function VisualizationPanel() {
         </div>
 
         <div className="vp-topbar-r">
+          {/* Complexity badge */}
+          {complexity && (
+            <div className={`vp-complexity ${complexityColor(complexity.time)}`} title={`${complexity.label} — Time: ${complexity.time} · Space: ${complexity.space}`}>
+              <span className="vp-cx-label">{complexity.label}</span>
+              <span className="vp-cx-time">{complexity.time}</span>
+              <span className="vp-cx-sep">·</span>
+              <span className="vp-cx-space">{complexity.space}</span>
+            </div>
+          )}
+
           {hasTrace && (
             <div className="vp-step-info">
               <span className="vp-step-n">{currentStep + 1}</span>
               <span className="vp-step-of">/ {trace.length}</span>
               {step?.line && <span className="vp-step-line">· ln {step.line}</span>}
             </div>
+          )}
+
+          {/* Refresh button */}
+          {hasTrace && (
+            <button
+              className="vp-refresh-btn"
+              onClick={resetExecution}
+              title="Clear visualization"
+            >
+              ⟳
+            </button>
           )}
 
           {/* Structure / Flow toggle */}
