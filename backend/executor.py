@@ -28,7 +28,7 @@ BLOCKED_MODULES = {
     'pickle', 'shelve', 'marshal', 'pty', 'signal',
 }
 
-# Modules explicitly allowed (common algorithm / DS / typing modules)
+# Modules explicitly allowed (common algorithm / DS / typing / ML modules)
 ALLOWED_MODULES = {
     'typing', 'typing_extensions',
     'collections', 'collections.abc',
@@ -39,6 +39,17 @@ ALLOWED_MODULES = {
     'enum', 'dataclasses', 'abc',
     'io', 'json',
     'sortedcontainers',
+    # ML / scientific
+    'numpy', 'np',
+    'pandas', 'pd',
+    'sklearn', 'scikit_learn',
+    'scipy',
+    'keras',
+    'tensorflow', 'tf',
+    'torch',
+    'matplotlib',
+    'seaborn',
+    'xgboost', 'lightgbm', 'catboost',
 }
 
 
@@ -73,7 +84,7 @@ def safe_repr(obj, depth=0, max_depth=4):
     """Serialize any Python object to a JSON-serializable structure."""
     if depth > max_depth:
         return {"type": "ellipsis", "value": "..."}
-    
+
     if obj is None:
         return {"type": "none", "value": None}
     elif isinstance(obj, bool):
@@ -87,7 +98,7 @@ def safe_repr(obj, depth=0, max_depth=4):
             return {"type": "float", "value": "NaN", "display": True}
         return {"type": "float", "value": obj}
     elif isinstance(obj, str):
-        return {"type": "str", "value": obj[:200]}  # truncate long strings
+        return {"type": "str", "value": obj[:200]}
     elif isinstance(obj, (list, tuple)):
         kind = "list" if isinstance(obj, list) else "tuple"
         if len(obj) > 100:
@@ -105,17 +116,76 @@ def safe_repr(obj, depth=0, max_depth=4):
     elif isinstance(obj, set):
         items = [safe_repr(x, depth+1) for x in list(obj)[:50]]
         return {"type": "set", "value": items, "length": len(obj)}
-    elif hasattr(obj, '__dict__'):
-        # Custom object - capture its attributes
-        obj_id = id(obj)
+
+    # ── numpy ndarray ──────────────────────────────────────────────
+    try:
+        import numpy as np
+        if isinstance(obj, np.ndarray):
+            shape = list(obj.shape)
+            dtype = str(obj.dtype)
+            flat  = obj.flatten().tolist()[:200]
+            # 2-D → list of rows; 1-D → flat list
+            if obj.ndim == 2:
+                rows = obj.tolist()
+                rows = [r[:50] for r in rows[:50]]
+                return {"type": "ndarray", "shape": shape, "dtype": dtype,
+                        "value": rows, "ndim": obj.ndim}
+            else:
+                return {"type": "ndarray", "shape": shape, "dtype": dtype,
+                        "value": flat, "ndim": obj.ndim}
+    except ImportError:
+        pass
+
+    # ── pandas DataFrame / Series ──────────────────────────────────
+    try:
+        import pandas as pd
+        if isinstance(obj, pd.DataFrame):
+            cols   = list(obj.columns[:20])
+            rows   = obj.head(30).values.tolist()
+            return {"type": "dataframe", "columns": cols, "rows": rows,
+                    "shape": list(obj.shape)}
+        if isinstance(obj, pd.Series):
+            return {"type": "series", "name": str(obj.name),
+                    "value": obj.head(100).tolist(), "length": len(obj)}
+    except ImportError:
+        pass
+
+    # ── Keras History ──────────────────────────────────────────────
+    try:
+        # keras.callbacks.History has a .history dict attr
+        if hasattr(obj, 'history') and hasattr(obj, 'epoch') and isinstance(getattr(obj, 'history', None), dict):
+            hist = obj.history
+            serialised = {k: [float(x) for x in v] for k, v in hist.items()}
+            return {"type": "keras_history", "history": serialised,
+                    "epochs": len(obj.epoch)}
+    except Exception:
+        pass
+
+    # ── sklearn / generic ML model ─────────────────────────────────
+    if hasattr(obj, '__dict__'):
         cls_name = type(obj).__name__
-        attrs = {}
-        for k, v in list(vars(obj).items())[:20]:
+        module   = type(obj).__module__ or ''
+        is_ml    = any(m in module for m in ('sklearn', 'keras', 'torch', 'xgboost', 'lightgbm'))
+        attrs    = {}
+        for k, v in list(vars(obj).items())[:25]:
             if not k.startswith('__'):
-                attrs[k] = safe_repr(v, depth+1)
-        return {"type": "object", "class": cls_name, "id": obj_id, "attrs": attrs}
-    else:
-        return {"type": "unknown", "value": repr(obj)[:100]}
+                try:
+                    attrs[k] = safe_repr(v, depth+1)
+                except Exception:
+                    attrs[k] = {"type": "unknown", "value": "?"}
+        result = {"type": "object", "class": cls_name, "id": id(obj), "attrs": attrs}
+        if is_ml:
+            result["ml_module"] = module.split('.')[0]
+            # capture get_params() for sklearn estimators
+            try:
+                if hasattr(obj, 'get_params'):
+                    result["params"] = {k: safe_repr(v, depth+1)
+                                        for k, v in obj.get_params().items()}
+            except Exception:
+                pass
+        return result
+
+    return {"type": "unknown", "value": repr(obj)[:100]}
 
 
 def detect_structure_hints(locals_repr: Dict) -> Dict[str, str]:
@@ -126,6 +196,47 @@ def detect_structure_hints(locals_repr: Dict) -> Dict[str, str]:
             continue
         t = obj.get("type", "")
         val = obj.get("value")
+
+        # ── ML / numpy types ──────────────────────────────────────
+        if t == "keras_history":
+            hints[name] = "training_history"
+            continue
+
+        if t == "ndarray":
+            ndim = obj.get("ndim", 1)
+            hints[name] = "matrix" if ndim == 2 else "array"
+            continue
+
+        if t == "dataframe":
+            hints[name] = "dataframe"
+            continue
+
+        if t == "series":
+            hints[name] = "array"
+            continue
+
+        if t == "object" and obj.get("ml_module"):
+            ml_mod = obj.get("ml_module", "")
+            cls    = obj.get("class", "").lower()
+            if any(x in cls for x in ("sequential", "model", "network")):
+                hints[name] = "nn_model"
+            elif any(x in cls for x in ("history",)):
+                hints[name] = "training_history"
+            else:
+                hints[name] = "ml_model"
+            continue
+
+        # Training history dict: has 'loss' key with a list value
+        if t == "dict" and val:
+            keys = set(val.keys())
+            ml_keys = {"loss", "val_loss", "accuracy", "val_accuracy",
+                       "acc", "val_acc", "mae", "mse", "auc"}
+            if keys & ml_keys and any(
+                isinstance(val.get(k), dict) and val[k].get("type") == "list"
+                for k in keys & ml_keys
+            ):
+                hints[name] = "training_history"
+                continue
         
         # Array-like patterns
         if t in ("list", "tuple") and isinstance(val, list):

@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
 import ArrayVisualizer from './ArrayVisualizer';
@@ -9,8 +9,12 @@ import LinkedListVisualizer from './LinkedListVisualizer';
 import StackQueueVisualizer from './StackQueueVisualizer';
 import HeapVisualizer from './HeapVisualizer';
 import GraphVisualizer from './GraphVisualizer';
+import TrainingCurveVisualizer from './TrainingCurveVisualizer';
+import MLModelVisualizer from './MLModelVisualizer';
 import { getPrimaryArray, getMatrix, getTreeNode, getStrings, flattenValue,
          getLinkedList, getStackOrQueue, getHeap, getGraph } from '../../utils/vizMapper';
+import { getTrainingHistory } from './TrainingCurveVisualizer';
+import { getMLModels } from './MLModelVisualizer';
 import { analyzeComplexity, complexityColor } from '../../utils/complexityAnalyzer';
 import './VisualizationPanel.css';
 
@@ -217,8 +221,24 @@ export default function VisualizationPanel() {
   const isError  = step?.event === 'error';
   const hasTrace = trace.length > 0;
 
-  const [dragOver, setDragOver] = useState(false);
-  const [vizMode, setVizMode]   = useState('structure'); // 'structure' | 'flow'
+  const [dragOver, setDragOver]       = useState(false);
+  const [vizMode, setVizMode]         = useState('structure');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const panelRef = useRef(null);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      panelRef.current?.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
 
   const locals  = step?.locals  || {};
   const hints   = step?.structure_hints || {};
@@ -233,7 +253,8 @@ export default function VisualizationPanel() {
   const hasSQ      = useMemo(() => step ? !!getStackOrQueue(locals, hints)  : false, [step, locals, hints]);
   // Heap: check entire trace, not just current step (so it stays visible end-to-end)
   const hasHeap    = useMemo(() => trace.some(s => !!getHeap(s.locals, s.structure_hints)), [trace]);
-  const hasGraph   = useMemo(() => step ? !!getGraph(locals, hints)         : false, [step, locals, hints]);
+  const hasGraph   = useMemo(() => step ? !!getGraph(locals, hints)               : false, [step, locals, hints]);
+  const hasML      = useMemo(() => step ? !!getTrainingHistory(locals, hints) || getMLModels(locals, hints).length > 0 : false, [step, locals, hints]);
 
   // Previous step tree for new-node diffing
   const prevTreeData = useMemo(() => prevStep ? getTreeNode(prevLocals, prevHints) : null, [prevStep, prevLocals, prevHints]);
@@ -256,7 +277,7 @@ export default function VisualizationPanel() {
   }, [trace.length]);
 
   const hasStructContent = hasArray || hasMatrix || !!treeData || strings.length > 0
-    || hasLL || hasSQ || hasHeap || hasGraph;
+    || hasLL || hasSQ || hasHeap || hasGraph || hasML;
 
   if (step && hasStructContent) {
     lastStructRef.current = { locals, hints, strings, stepData: step };
@@ -276,9 +297,10 @@ export default function VisualizationPanel() {
   const dispHasSQ     = useMemo(() => dispStep ? !!getStackOrQueue(dispLocals, dispHints) : false, [dispStep, dispLocals, dispHints]);
   const dispHasHeap   = hasHeap; // trace-wide — managed by hasHeap above
   const dispHasGraph  = useMemo(() => dispStep ? !!getGraph(dispLocals, dispHints)        : false, [dispStep, dispLocals, dispHints]);
+  const dispHasML     = useMemo(() => dispStep ? (!!getTrainingHistory(dispLocals, dispHints) || getMLModels(dispLocals, dispHints).length > 0) : false, [dispStep, dispLocals, dispHints]);
 
   const hasAnyContent = dispHasArray || dispHasMatrix || !!dispTreeData || dispStrings.length > 0
-    || dispHasLL || dispHasSQ || dispHasHeap || dispHasGraph || pinnedVars.length > 0;
+    || dispHasLL || dispHasSQ || dispHasHeap || dispHasGraph || dispHasML || pinnedVars.length > 0;
 
   /* ── Drag-and-drop ── */
   const handleDragOver  = useCallback((e) => {
@@ -321,7 +343,8 @@ export default function VisualizationPanel() {
 
   return (
     <div
-      className={`vp ${dragOver ? 'vp-drag-over' : ''}`}
+      ref={panelRef}
+      className={`vp ${dragOver ? 'vp-drag-over' : ''} ${isFullscreen ? 'vp-is-fullscreen' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -382,6 +405,18 @@ export default function VisualizationPanel() {
               ⟳
             </button>
           )}
+
+          {/* Fullscreen toggle */}
+          <button
+            className={`vp-fs-btn ${isFullscreen ? 'vp-fs-active' : ''}`}
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+          >
+            {isFullscreen
+              ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+              : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+            }
+          </button>
 
           {/* Structure / Flow toggle */}
           {hasTrace && (
@@ -532,6 +567,26 @@ export default function VisualizationPanel() {
                 <motion.div key="graph" className="vp-section"
                   initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
                   <GraphVisualizer stepData={dispStep} />
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* ML: Training curve */}
+            {hasTrace && dispHasML && (
+              <AnimatePresence>
+                <motion.div key="tc" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <TrainingCurveVisualizer stepData={dispStep} />
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* ML: Model card (sklearn / keras) */}
+            {hasTrace && dispHasML && (
+              <AnimatePresence>
+                <motion.div key="mlm" className="vp-section"
+                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                  <MLModelVisualizer stepData={dispStep} />
                 </motion.div>
               </AnimatePresence>
             )}
