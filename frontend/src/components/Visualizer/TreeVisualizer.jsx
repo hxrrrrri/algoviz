@@ -3,24 +3,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { flattenValue } from '../../utils/vizMapper';
 import './TreeVisualizer.css';
 
-const NODE_R = 28;
-const H_STEP = 80;    // horizontal gap between in-order positions
-const V_GAP  = 110;   // vertical gap between levels — enough room for crossbar + labels
-const PAD    = 48;    // padding around the entire tree
+const NODE_R = 24;
+const H_STEP = 72;
+const V_GAP  = 96;
+const PAD    = 40;
 
-/* ────────────────────────────────────────────────
-   Parse safe_repr tree.
-   Each node gets a "path" string (L/R from root).
-──────────────────────────────────────────────── */
+/* ── Parse ── */
 function parseNode(repr, path = '', depth = 0, maxDepth = 12) {
   if (!repr || depth > maxDepth) return null;
   if (repr.type === 'none' || repr.type === 'ellipsis') return null;
   if (repr.type !== 'object') return null;
 
-  const attrs  = repr.attrs || {};
+  const attrs   = repr.attrs || {};
   const valRepr = attrs.val ?? attrs.value ?? attrs.data ?? attrs.key ?? null;
-  const val = (valRepr !== null && valRepr !== undefined)
-    ? String(flattenValue(valRepr) ?? '?') : '?';
+  const val     = valRepr != null ? String(flattenValue(valRepr) ?? '?') : '?';
 
   return {
     val, path, depth,
@@ -34,7 +30,7 @@ function assignX(node, counter) {
   if (!node) return;
   assignX(node.left, counter);
   node.x = counter.v * H_STEP;
-  counter.v += 1;
+  counter.v++;
   assignX(node.right, counter);
 }
 
@@ -55,8 +51,8 @@ function collectNodes(node, arr = []) {
 
 function collectEdges(node, arr = []) {
   if (!node) return arr;
-  if (node.left)  arr.push({ px: node.x, py: node.y, cx: node.left.x,  cy: node.left.y,  dir: 'L', newChild: false });
-  if (node.right) arr.push({ px: node.x, py: node.y, cx: node.right.x, cy: node.right.y, dir: 'R', newChild: false });
+  if (node.left)  arr.push({ from: node, to: node.left,  dir: 'L' });
+  if (node.right) arr.push({ from: node, to: node.right, dir: 'R' });
   collectEdges(node.left,  arr);
   collectEdges(node.right, arr);
   return arr;
@@ -70,25 +66,13 @@ function pathSet(node, s = new Set()) {
   return s;
 }
 
-/* Null-leaf placeholders — only for non-leaf nodes */
-function collectNullLeaves(node, arr = []) {
-  if (!node) return arr;
-  if (!node.left && !node.right) return arr;
-  if (!node.left)  arr.push({ x: node.x - H_STEP * 0.5, y: node.y + V_GAP, parentX: node.x, parentY: node.y });
-  if (!node.right) arr.push({ x: node.x + H_STEP * 0.5, y: node.y + V_GAP, parentX: node.x, parentY: node.y });
-  collectNullLeaves(node.left,  arr);
-  collectNullLeaves(node.right, arr);
-  return arr;
-}
-
-/* Orthogonal T-junction:
-   parent → straight down to midpoint Y → horizontal → straight down to child
-   This is the canonical clean tree-edge layout used by all serious visualizers. */
-function edgePath(px, py, cx, cy) {
-  const sy   = py + NODE_R;         // bottom of parent circle
-  const ey   = cy - NODE_R;         // top of child circle
-  const midY = (sy + ey) / 2;       // horizontal cross-bar Y
-  return `M ${px},${sy} L ${px},${midY} L ${cx},${midY} L ${cx},${ey}`;
+/* Smooth bezier edge from bottom of parent circle to top of child circle */
+function bezierPath(px, py, cx, cy) {
+  const sy = py + NODE_R;
+  const ey = cy - NODE_R;
+  const cp1y = sy + (ey - sy) * 0.5;
+  const cp2y = ey - (ey - sy) * 0.3;
+  return `M ${px} ${sy} C ${px} ${cp1y}, ${cx} ${cp2y}, ${cx} ${ey}`;
 }
 
 /* ════════════════════════════════════════════════
@@ -107,11 +91,9 @@ export default function TreeVisualizer({ name, repr, prevRepr }) {
 
     const nodes = collectNodes(root);
 
-    /* Shift so tree starts at (PAD, PAD) — fixes top/left clipping */
     const rawMinX = Math.min(...nodes.map(n => n.x));
-    const rawMinY = Math.min(...nodes.map(n => n.y)); // always 0, but explicit
     const shiftX  = -rawMinX + PAD;
-    const shiftY  = -rawMinY + PAD;
+    const shiftY  = PAD;
 
     nodes.forEach(n => {
       n.x += shiftX;
@@ -119,192 +101,126 @@ export default function TreeVisualizer({ name, repr, prevRepr }) {
       n.isNew = !prevPaths.has(n.path) && prevPaths.size > 0;
     });
 
-    /* Mark edges whose child is new */
-    const edges = collectEdges(root);
-    edges.forEach(e => {
-      e.px += shiftX; e.cx += shiftX;
-      e.py += shiftY; e.cy += shiftY;
-      // find child node to set newChild flag
-      const child = nodes.find(n => n.x === e.cx && n.y === e.cy);
-      if (child) e.newChild = child.isNew;
-    });
+    const edges = collectEdges(root).map(e => ({
+      px: e.from.x + shiftX - (e.from.x), // already shifted via nodes
+      py: e.from.y,
+      cx: e.to.x,
+      cy: e.to.y,
+      dir: e.dir,
+      isNew: !prevPaths.has(e.to.path) && prevPaths.size > 0,
+    }));
 
-    const nullLeaves = collectNullLeaves(root);
-    nullLeaves.forEach(n => {
-      n.x       += shiftX; n.parentX += shiftX;
-      n.y       += shiftY; n.parentY += shiftY;
-    });
+    // Re-read x/y from shifted nodes
+    const edgesFinal = collectEdges(root).map(e => ({
+      px: nodes.find(n => n.path === e.from.path)?.x ?? 0,
+      py: nodes.find(n => n.path === e.from.path)?.y ?? 0,
+      cx: nodes.find(n => n.path === e.to.path)?.x ?? 0,
+      cy: nodes.find(n => n.path === e.to.path)?.y ?? 0,
+      dir: e.dir,
+      isNew: !prevPaths.has(e.to.path) && prevPaths.size > 0,
+    }));
 
     const maxX = Math.max(...nodes.map(n => n.x));
     const maxY = Math.max(...nodes.map(n => n.y));
 
-    return {
-      nodes, edges, nullLeaves,
-      svgW: maxX + PAD,
-      svgH: maxY + PAD,
-    };
+    return { nodes, edges: edgesFinal, svgW: maxX + PAD, svgH: maxY + PAD };
   }, [repr, prevRepr]);
 
   if (!layout) return null;
-  const { nodes, edges, nullLeaves, svgW, svgH } = layout;
-  const gradId = `ng-${name}`;
+  const { nodes, edges, svgW, svgH } = layout;
+  const newCount = nodes.filter(n => n.isNew).length;
 
   return (
     <div className="tv">
-      {/* Header */}
       <div className="tv-label">
         <span className="tv-name">{name}</span>
         <span className="tv-type-badge">Binary Tree</span>
         <span className="tv-count">{nodes.length} node{nodes.length !== 1 ? 's' : ''}</span>
         <AnimatePresence>
-          {nodes.some(n => n.isNew) && (
-            <motion.span className="tv-new-badge"
-              key="new-badge"
-              initial={{ scale: 1.5, opacity: 0 }}
-              animate={{ scale: 1,   opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
-              +{nodes.filter(n => n.isNew).length} new
+          {newCount > 0 && (
+            <motion.span className="tv-new-badge" key="nb"
+              initial={{ scale: 1.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
+              +{newCount} new
             </motion.span>
           )}
         </AnimatePresence>
       </div>
 
-      {/* SVG — centred in its scroll container */}
       <div className="tv-scroll">
-        <svg
-          width={svgW}
-          height={svgH}
-          className="tv-svg"
-        >
-          {/* ── Gradient + filter defs ── */}
+        <svg width={svgW} height={svgH} className="tv-svg">
           <defs>
-            <radialGradient id={gradId} cx="40%" cy="35%" r="65%">
-              <stop offset="0%"   stopColor="rgba(165,180,252,0.30)" />
-              <stop offset="60%"  stopColor="rgba(99,102,241,0.12)" />
-              <stop offset="100%" stopColor="rgba(49,46,129,0.08)" />
-            </radialGradient>
-            <radialGradient id={`${gradId}-new`} cx="40%" cy="35%" r="65%">
-              <stop offset="0%"   stopColor="rgba(110,231,183,0.40)" />
-              <stop offset="60%"  stopColor="rgba(16,185,129,0.18)" />
-              <stop offset="100%" stopColor="rgba(6,78,59,0.08)" />
-            </radialGradient>
-            <filter id="tv-glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="4" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            <filter id="tv-node-shadow" x="-40%" y="-40%" width="180%" height="180%">
+              <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="rgba(0,0,0,0.35)" floodOpacity="1"/>
             </filter>
-            <filter id="tv-glow-new" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="6" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            <filter id="tv-node-shadow-new" x="-40%" y="-40%" width="180%" height="180%">
+              <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="rgba(45,212,160,0.5)" floodOpacity="1"/>
             </filter>
           </defs>
 
-          {/* ── Dashed lines to null leaves ── */}
-          {nullLeaves.map((nl, i) => (
-            <line key={`nl-${i}`}
-              x1={nl.parentX} y1={nl.parentY + NODE_R}
-              x2={nl.x}       y2={nl.y - 10}
-              className="tv-null-edge"
-            />
-          ))}
-
-          {/* ── Null leaf squares ── */}
-          {nullLeaves.map((nl, i) => (
-            <g key={`nlg-${i}`} transform={`translate(${nl.x},${nl.y})`}>
-              <rect x={-9} y={-9} width={18} height={18} rx={3} className="tv-null-leaf" />
-              <text textAnchor="middle" dominantBaseline="central" className="tv-null-text">∅</text>
-            </g>
-          ))}
-
-          {/* ── Edges — animated draw-in ── */}
+          {/* ── Edges ── */}
           <AnimatePresence>
             {edges.map((e, i) => {
-              const d = edgePath(e.px, e.py, e.cx, e.cy);
-              // Label sits on the vertical drop segment, just below the crossbar
-              const sy   = e.py + NODE_R;
-              const ey   = e.cy - NODE_R;
-              const midY = (sy + ey) / 2;
-              const labelX = e.cx + (e.dir === 'L' ? -11 : 11);
-              const labelY = midY + 10;
+              const d = bezierPath(e.px, e.py, e.cx, e.cy);
               return (
-                <g key={`e-${e.px}-${e.py}-${e.dir}`}>
-                  {/* Glow copy behind the edge for new edges */}
-                  {e.newChild && (
-                    <motion.path d={d} fill="none"
-                      className="tv-edge-glow-bg"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.08 + 0.1 }}
-                    />
-                  )}
-                  <motion.path
-                    d={d} fill="none"
-                    className={`tv-edge ${e.newChild ? 'tv-edge-new' : ''}`}
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 0.6, delay: i * 0.07, ease: 'easeOut' }}
-                  />
-                  <text x={labelX} y={labelY} textAnchor="middle" className="tv-edge-label">
-                    {e.dir}
-                  </text>
-                </g>
+                <motion.path key={`e-${i}`} d={d} fill="none"
+                  className={`tv-edge ${e.isNew ? 'tv-edge-new' : ''}`}
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ duration: 0.45, delay: i * 0.05, ease: 'easeOut' }}
+                />
               );
             })}
           </AnimatePresence>
 
-          {/* ── Nodes ──
-              IMPORTANT: plain <g transform> for position, motion.circle for animation.
-              Never use motion.g with a transform prop — Framer Motion overrides SVG transforms.
-          ── */}
+          {/* ── Edge direction labels (L / R) ── */}
+          {edges.map((e, i) => {
+            const midX = (e.px + e.cx) / 2 + (e.dir === 'L' ? -10 : 10);
+            const midY = (e.py + NODE_R + e.cy - NODE_R) / 2;
+            return (
+              <text key={`el-${i}`} x={midX} y={midY}
+                textAnchor="middle" dominantBaseline="middle"
+                className="tv-edge-label">
+                {e.dir}
+              </text>
+            );
+          })}
+
+          {/* ── Nodes ── */}
           <AnimatePresence>
             {nodes.map((n, i) => (
-              <g key={n.path || `node-${i}`} transform={`translate(${n.x},${n.y})`}>
-
-                {/* Ripple burst for newly added nodes */}
+              <g key={n.path || `nd-${i}`} transform={`translate(${n.x},${n.y})`}>
+                {/* Ripple for new nodes */}
                 {n.isNew && (
-                  <motion.circle r={NODE_R}
-                    fill="none" stroke="var(--accent)" strokeWidth={2}
-                    initial={{ r: NODE_R,      opacity: 0.9 }}
-                    animate={{ r: NODE_R + 26, opacity: 0   }}
-                    transition={{ duration: 0.9, delay: i * 0.04, ease: 'easeOut' }}
-                  />
-                )}
-                {n.isNew && (
-                  <motion.circle r={NODE_R}
-                    fill="none" stroke="var(--accent)" strokeWidth={1.2}
-                    initial={{ r: NODE_R,      opacity: 0.6 }}
-                    animate={{ r: NODE_R + 18, opacity: 0   }}
-                    transition={{ duration: 0.7, delay: i * 0.04 + 0.18, ease: 'easeOut' }}
+                  <motion.circle r={NODE_R} fill="none" stroke="rgba(45,212,160,0.6)" strokeWidth={2}
+                    initial={{ r: NODE_R, opacity: 0.9 }}
+                    animate={{ r: NODE_R + 22, opacity: 0 }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
                   />
                 )}
 
-                {/* Soft ambient glow ring */}
-                <circle r={NODE_R + 5}
-                  className={`tv-node-glow ${n.isNew ? 'tv-node-glow-new' : ''}`}
-                />
-
-                {/* Node body with gradient fill */}
-                <motion.circle
-                  r={NODE_R}
-                  fill={`url(#${n.isNew ? `${gradId}-new` : gradId})`}
+                {/* Node body */}
+                <motion.circle r={NODE_R}
                   className={`tv-node ${n.isNew ? 'tv-node-new' : ''}`}
-                  filter={`url(#${n.isNew ? 'tv-glow-new' : 'tv-glow'})`}
+                  filter={`url(#${n.isNew ? 'tv-node-shadow-new' : 'tv-node-shadow'})`}
                   initial={{ r: 0, opacity: 0 }}
                   animate={{ r: NODE_R, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 26, delay: i * 0.05 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 26, delay: i * 0.04 }}
                 />
 
-                {/* Value text — slides in after circle */}
-                <motion.text
-                  textAnchor="middle"
-                  dominantBaseline="central"
+                {/* Value */}
+                <motion.text textAnchor="middle" dominantBaseline="central"
                   className={`tv-node-val ${n.isNew ? 'tv-node-val-new' : ''}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: i * 0.05 + 0.18, duration: 0.25 }}
-                >
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.04 + 0.15, duration: 0.2 }}>
                   {n.val.length > 5 ? n.val.slice(0, 5) + '…' : n.val}
                 </motion.text>
+
+                {/* Depth index (top-right) */}
+                <text x={NODE_R - 4} y={-NODE_R + 7}
+                  textAnchor="end" className="tv-node-depth">
+                  {n.depth}
+                </text>
               </g>
             ))}
           </AnimatePresence>

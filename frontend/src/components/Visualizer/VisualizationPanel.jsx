@@ -243,10 +243,14 @@ export default function VisualizationPanel() {
   /* ── Persistence: remember last valid structure content ── */
   const lastStructRef = useRef({ locals: {}, hints: {}, strings: [], stepData: null });
 
+  /* ── Pinned variable cache: last known repr per variable name ── */
+  const pinnedCacheRef = useRef({});  // { [varName]: { repr, prevRepr } }
+
   // Reset persisted content when trace is cleared (e.g. user hits refresh)
   useEffect(() => {
     if (trace.length === 0) {
       lastStructRef.current = { locals: {}, hints: {}, strings: [], stepData: null };
+      pinnedCacheRef.current = {};
     }
   }, [trace.length]);
 
@@ -288,12 +292,30 @@ export default function VisualizationPanel() {
     if (name) pinVar(name);
   }, [pinVar]);
 
+  // Update pinned cache with any currently-visible values
+  if (step) {
+    for (const name of pinnedVars) {
+      const cur = locals[name];
+      const prv = prevLocals[name];
+      if (cur) {
+        pinnedCacheRef.current[name] = {
+          repr:     cur,
+          prevRepr: prv || pinnedCacheRef.current[name]?.repr || null,
+        };
+      }
+    }
+  }
+
   const pinnedData = useMemo(() => {
-    return pinnedVars.map(name => ({
-      name,
-      repr:     locals[name]     || null,
-      prevRepr: prevLocals[name] || null,
-    }));
+    return pinnedVars.map(name => {
+      const live    = locals[name];
+      const livePrv = prevLocals[name];
+      if (live) return { name, repr: live, prevRepr: livePrv || null };
+      // Fall back to last cached value so the card stays visible after scope ends
+      const cached = pinnedCacheRef.current[name];
+      return { name, repr: cached?.repr || null, prevRepr: cached?.prevRepr || null };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinnedVars, locals, prevLocals]);
 
   return (
