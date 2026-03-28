@@ -157,12 +157,68 @@ def safe_repr(obj, depth=0, max_depth=4):
 
     # ── Keras History ──────────────────────────────────────────────
     try:
-        # keras.callbacks.History has a .history dict attr
         if hasattr(obj, 'history') and hasattr(obj, 'epoch') and isinstance(getattr(obj, 'history', None), dict):
             hist = obj.history
             serialised = {k: [float(x) for x in v] for k, v in hist.items()}
             return {"type": "keras_history", "history": serialised,
                     "epochs": len(obj.epoch)}
+    except Exception:
+        pass
+
+    # ── Keras Model (Sequential / Functional) ──────────────────────
+    try:
+        module = type(obj).__module__ or ''
+        if 'keras' in module and hasattr(obj, 'layers') and hasattr(obj, 'trainable'):
+            cls_name = type(obj).__name__
+            layers_data = []
+            for layer in obj.layers:
+                lm = type(layer).__module__ or ''
+                ldata = {
+                    "class": type(layer).__name__,
+                    "name":  layer.name,
+                }
+                # Config (units, filters, activation, etc.)
+                try:
+                    cfg = layer.get_config()
+                    for key in ('units', 'filters', 'rate', 'kernel_size', 'pool_size',
+                                'output_dim', 'input_dim', 'num_heads', 'embed_dim'):
+                        if key in cfg:
+                            ldata[key] = cfg[key]
+                    if 'activation' in cfg:
+                        act = cfg['activation']
+                        ldata['activation'] = act if isinstance(act, str) else act.get('class_name', str(act))
+                except Exception:
+                    pass
+                # Output shape
+                try:
+                    out_shape = layer.output_shape
+                    ldata['output_shape'] = list(out_shape) if isinstance(out_shape, tuple) else str(out_shape)
+                except Exception:
+                    pass
+                # Parameter count
+                try:
+                    ldata['param_count'] = layer.count_params()
+                except Exception:
+                    pass
+                layers_data.append(ldata)
+
+            result = {
+                "type": "object", "class": cls_name,
+                "id": id(obj), "ml_module": "keras",
+                "attrs": {"layers": {"type": "list", "value": [
+                    {"type": "object", "class": l["class"],
+                     "attrs": {k: {"type": "str", "value": str(v)} if not isinstance(v, (int, float)) else {"type": "int" if isinstance(v, int) else "float", "value": v}
+                               for k, v in l.items() if k != "class"}}
+                    for l in layers_data
+                ]}}
+            }
+            # Total params
+            try:
+                result["total_params"]     = obj.count_params()
+                result["trainable_params"] = sum(p.numpy().size for p in obj.trainable_weights)
+            except Exception:
+                pass
+            return result
     except Exception:
         pass
 
@@ -181,7 +237,6 @@ def safe_repr(obj, depth=0, max_depth=4):
         result = {"type": "object", "class": cls_name, "id": id(obj), "attrs": attrs}
         if is_ml:
             result["ml_module"] = module.split('.')[0]
-            # capture get_params() for sklearn estimators
             try:
                 if hasattr(obj, 'get_params'):
                     result["params"] = {k: safe_repr(v, depth+1)
