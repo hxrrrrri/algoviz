@@ -169,8 +169,20 @@ def detect_structure_hints(locals_repr: Dict) -> Dict[str, str]:
             hints[name] = "heap"
         elif n in ("graph", "adj", "adjacency") and t == "dict":
             hints[name] = "graph"
-        elif n in ("dp", "memo", "cache") and t in ("list", "dict"):
-            hints[name] = "dp_table" if t == "list" else "memo"
+        elif n in (
+            "dp", "memo", "cache", "table", "tab",
+            "dp_table", "dp_mat", "dp_matrix",
+            "cost", "dist", "f", "g", "h",
+            "lcs", "lis", "knap", "sol", "res",
+        ) and t in ("list", "dict"):
+            # Only promote to dp_table if it is a 2-D list (list of lists)
+            if t == "list" and isinstance(val, list) and val and isinstance(val[0], dict) and val[0].get("type") == "list":
+                hints[name] = "dp_table"
+            elif t == "list":
+                # 1-D list with a DP name — keep as array so it renders as array bar
+                hints.setdefault(name, "array")
+            else:
+                hints[name] = "memo"
     
     return hints
 

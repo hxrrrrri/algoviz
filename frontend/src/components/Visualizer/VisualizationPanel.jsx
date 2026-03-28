@@ -434,8 +434,8 @@ export default function VisualizationPanel() {
               </AnimatePresence>
             )}
 
-            {/* Matrix */}
-            {hasTrace && dispHasMatrix && !dispHasArray && (
+            {/* Matrix / DP table — show even when arrays are also present */}
+            {hasTrace && dispHasMatrix && (
               <AnimatePresence>
                 <motion.div key="mat" className="vp-section"
                   initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
