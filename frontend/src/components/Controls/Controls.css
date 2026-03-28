@@ -1,0 +1,112 @@
+.ctrl {
+  height: var(--controls-h); flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(14,14,26,0.99), rgba(10,10,20,0.99));
+  border-top: 1px solid var(--border-gold);
+  position: relative; z-index: 10;
+}
+.ctrl::before {
+  content:''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-500), transparent); opacity: 0.3;
+}
+.ctrl-inner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 20px; height: 100%;
+}
+
+.ctrl-run {
+  display: flex; align-items: center; gap: 7px;
+  background: linear-gradient(135deg, var(--gold-400) 0%, var(--gold-500) 100%);
+  color: #05050a; border: none; border-radius: 8px;
+  padding: 8px 18px; font-family: var(--font-mono);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.06em;
+  box-shadow: 0 4px 16px rgba(246,200,66,0.25), var(--shadow-inset);
+  flex-shrink: 0;
+}
+.ctrl-run:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(246,200,66,0.35), var(--shadow-inset);
+}
+.ctrl-run:active:not(:disabled) { transform: translateY(0); }
+.ctrl-run.running {
+  background: var(--bg-3); color: var(--gold-400);
+  border: 1px solid var(--gold-border); box-shadow: none; cursor: not-allowed;
+}
+.ctrl-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.ctrl-run-gem { font-size: 10px; }
+.ctrl-spinner {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1.5px solid var(--gold-dim); border-top-color: var(--gold-400);
+  animation: rotate-slow 0.7s linear infinite; display: inline-block;
+}
+
+.ctrl-sep { width: 1px; height: 28px; background: var(--border-dim); flex-shrink: 0; }
+
+.ctrl-transport { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.ctrl-transport.dim { opacity: 0.3; pointer-events: none; }
+
+.ctrl-btn {
+  background: none; border: 1px solid transparent; color: var(--text-dim);
+  border-radius: 6px; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; cursor: pointer; transition: all 0.15s;
+}
+.ctrl-btn:hover:not(:disabled) {
+  background: var(--gold-dim); color: var(--gold-200); border-color: var(--gold-border);
+}
+.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.ctrl-btn.play {
+  background: linear-gradient(135deg, rgba(246,200,66,0.1), rgba(246,200,66,0.06));
+  border-color: var(--gold-border); color: var(--gold-300);
+  width: 38px; height: 38px; font-size: 14px;
+  box-shadow: 0 0 12px rgba(246,200,66,0.1);
+}
+.ctrl-btn.play:hover:not(:disabled) {
+  background: var(--gold-dim); border-color: var(--gold-400);
+  box-shadow: 0 0 20px rgba(246,200,66,0.2);
+}
+.ctrl-btn.reset:hover:not(:disabled) { color: var(--ruby); border-color: rgba(248,113,113,0.3); background: var(--ruby-dim); }
+
+/* Scrubber */
+.ctrl-scrubber {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  cursor: pointer; min-width: 80px;
+}
+.ctrl-scrubber.dim { opacity: 0.3; pointer-events: none; }
+.ctrl-track {
+  flex: 1; height: 4px; background: var(--bg-3);
+  border-radius: 2px; border: 1px solid var(--border-dim);
+  position: relative; transition: height 0.15s;
+}
+.ctrl-scrubber:hover .ctrl-track { height: 6px; }
+.ctrl-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: linear-gradient(90deg, var(--gold-500), var(--gold-300));
+  border-radius: 2px; transition: width 0.04s;
+  box-shadow: 0 0 8px rgba(246,200,66,0.3);
+}
+.ctrl-thumb {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--gold-300); border: 2px solid var(--bg-0);
+  box-shadow: 0 0 8px rgba(246,200,66,0.6);
+  transition: left 0.04s;
+}
+.ctrl-pos {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+  white-space: nowrap; flex-shrink: 0;
+}
+
+/* Speed */
+.ctrl-speeds { display: flex; gap: 3px; flex-shrink: 0; }
+.ctrl-speed {
+  background: none; border: 1px solid var(--border-dim);
+  color: var(--text-ghost); border-radius: 5px;
+  padding: 3px 8px; font-family: var(--font-mono);
+  font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.12s;
+}
+.ctrl-speed:hover { color: var(--text-dim); border-color: var(--border-subtle); }
+.ctrl-speed.on {
+  background: var(--gold-dim); border-color: var(--gold-border);
+  color: var(--gold-300); box-shadow: 0 0 8px rgba(246,200,66,0.1);
+}

@@ -1,0 +1,200 @@
+.lvp {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(13,13,26,0.98) 0%, rgba(8,8,16,0.98) 100%);
+  overflow: hidden;
+}
+
+.lvp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border-gold);
+  flex-shrink: 0;
+  background: rgba(246,200,66,0.02);
+}
+.lvp-title {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-display);
+  font-size: 13px; font-weight: 600; font-style: italic;
+  color: var(--gold-200);
+}
+.lvp-gem { color: var(--gold-400); font-size: 12px; }
+.lvp-line-badge {
+  font-size: 10px; font-weight: 500; letter-spacing: 0.06em;
+  color: var(--gold-500);
+  background: var(--gold-dim);
+  border: 1px solid var(--gold-border);
+  border-radius: 4px; padding: 2px 7px;
+}
+
+.lvp-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; color: var(--text-ghost);
+  font-size: 12px; text-align: center; line-height: 1.7;
+}
+.lvp-empty-icon {
+  font-size: 28px; color: var(--text-ghost);
+  animation: float 3s ease-in-out infinite;
+}
+
+.lvp-vars-scroll {
+  flex: 1; overflow-y: auto;
+  padding: 10px 10px 6px;
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 0;
+}
+
+.lvp-no-vars {
+  color: var(--text-ghost); font-size: 11px;
+  text-align: center; padding: 20px;
+}
+
+/* Variable card — the hero element */
+.var-card {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--card-bg, rgba(255,255,255,0.04));
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: default;
+  transition: border-color 0.2s, background 0.2s;
+  overflow: hidden;
+}
+.var-card::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--card-color);
+  border-radius: 2px 0 0 2px;
+}
+.var-card.flash {
+  border-color: var(--card-color);
+  background: var(--card-bg);
+  animation: value-flash 0.9s ease-out forwards;
+}
+.var-card.is-new {
+  border-color: rgba(246,200,66,0.3);
+}
+.var-card:hover {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.var-card-left {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+}
+.var-gem { font-size: 10px; color: var(--card-color); flex-shrink: 0; }
+.var-info { display: flex; flex-direction: column; min-width: 0; }
+.var-name {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  color: var(--text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.var-type {
+  font-family: var(--font-mono); font-size: 9px;
+  color: var(--card-color); opacity: 0.7; letter-spacing: 0.04em;
+}
+
+.var-card-right {
+  display: flex; flex-direction: column; align-items: flex-end;
+  min-width: 0; flex-shrink: 0; max-width: 55%;
+}
+.var-prev {
+  font-family: var(--font-mono); font-size: 9px;
+  color: var(--text-ghost); text-decoration: line-through;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.var-value {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  color: var(--card-color);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.var-change-dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--gold-300);
+  animation: pulse-gold 1s ease-out;
+}
+
+/* Call stack */
+.lvp-section {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-dim);
+  flex-shrink: 0;
+}
+.lvp-section-title {
+  font-size: 9px; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold-600);
+  margin-bottom: 6px;
+}
+.cs-frame {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 4px; border-radius: 4px;
+  font-size: 11px;
+}
+.cs-frame.top { background: rgba(246,200,66,0.05); }
+.cs-icon { color: var(--gold-500); font-size: 8px; flex-shrink: 0; }
+.cs-fn { font-family: var(--font-mono); color: var(--amethyst); font-weight: 500; }
+.cs-line { font-family: var(--font-mono); color: var(--text-dim); font-size: 10px; }
+
+/* Error */
+.lvp-error {
+  margin: 8px 10px;
+  background: var(--ruby-dim);
+  border: 1px solid rgba(248,113,113,0.25);
+  border-radius: 8px; padding: 10px 12px;
+  flex-shrink: 0;
+}
+.lvp-error-type {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--ruby); margin-bottom: 4px;
+}
+.lvp-error-msg { font-size: 11px; color: var(--text-main); line-height: 1.5; }
+.lvp-error-line { font-size: 10px; color: rgba(248,113,113,0.6); margin-top: 4px; }
+
+/* Stdout */
+.lvp-stdout {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 80px; overflow-y: auto;
+}
+.lvp-out-line {
+  display: flex; gap: 6px; font-size: 11px;
+  font-family: var(--font-mono); color: var(--text-dim); line-height: 1.5;
+}
+.lvp-out-arrow { color: var(--emerald); font-size: 10px; flex-shrink: 0; }
+
+/* Timeline strip */
+.history-strip {
+  border-top: 1px solid var(--border-gold);
+  padding: 8px 10px;
+  flex-shrink: 0;
+  background: rgba(246,200,66,0.02);
+}
+.history-label {
+  font-size: 8px; font-weight: 500; letter-spacing: 0.14em;
+  color: var(--gold-600); margin-bottom: 6px;
+}
+.history-scroll {
+  display: flex; gap: 2px; overflow-x: auto;
+  padding-bottom: 2px; align-items: center;
+}
+.history-tick {
+  flex-shrink: 0; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--bg-3);
+  border: 1px solid var(--border-dim);
+  cursor: pointer; transition: all 0.1s;
+}
+.history-tick:hover { background: var(--text-dim); }
+.history-tick.active {
+  background: var(--gold-400);
+  box-shadow: 0 0 6px rgba(246,200,66,0.5);
+  width: 10px; border-radius: 3px;
+}
+.history-tick.has-change { background: rgba(79,195,247,0.4); border-color: rgba(79,195,247,0.3); }
+.history-tick.has-error { background: rgba(248,113,113,0.5); border-color: rgba(248,113,113,0.4); }
+.history-tick.active.has-change { background: var(--gold-400); }
+.history-tick.active.has-error { background: var(--ruby); }

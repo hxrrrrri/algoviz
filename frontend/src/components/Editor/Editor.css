@@ -1,0 +1,34 @@
+.editor-wrapper {
+  display: flex; flex-direction: column; height: 100%;
+  background: linear-gradient(180deg, rgba(10,10,20,0.98), rgba(7,7,16,0.98));
+}
+.editor-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; height: 36px;
+  border-bottom: 1px solid var(--border-gold);
+  background: rgba(246,200,66,0.02); flex-shrink: 0;
+}
+.editor-lang-badge {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.lang-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #3572A5;
+  box-shadow: 0 0 6px rgba(53,114,165,0.5);
+}
+.editor-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px;
+}
+.exec-text { display: flex; align-items: center; gap: 5px; color: var(--gold-400); }
+.hint-text { color: var(--text-ghost); }
+.exec-spinner {
+  width: 9px; height: 9px; border-radius: 50%;
+  border: 1.5px solid var(--gold-dim); border-top-color: var(--gold-400);
+  animation: rotate-slow 0.7s linear infinite; display: inline-block;
+}
+.editor-scroll-area { flex: 1; overflow: auto; }
+.editor-scroll-area .cm-editor { height: 100%; background: transparent; }
+.editor-scroll-area .cm-scroller { overflow: auto; font-family: var(--font-mono); }

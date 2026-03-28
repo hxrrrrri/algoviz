@@ -1,0 +1,6 @@
+.csv { display:flex; flex-direction:column; gap:3px; padding:8px 12px; }
+.csv-frame { display:flex; align-items:center; gap:7px; padding:4px 8px; border-radius:5px; }
+.csv-frame.top { background:rgba(246,200,66,0.05); border:1px solid var(--border-gold); }
+.csv-icon { color:var(--gold-500); font-size:9px; flex-shrink:0; }
+.csv-fn { font-family:var(--font-mono); font-size:12px; font-weight:500; color:var(--amethyst); }
+.csv-ln { font-family:var(--font-mono); font-size:10px; color:var(--text-dim); }
