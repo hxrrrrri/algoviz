@@ -1,23 +1,48 @@
-# AlgoViz — Step-by-Step Algorithm Visualizer
+# Code-Viz — Algorithm Intelligence Studio
 
-> Write Python algorithms. Watch them execute. Understand them deeply.
+> Step-by-step algorithm visualization with live variable tracking, 4 visual themes, and real-time execution insight.
 
-AlgoViz is a high-performance web platform that interprets your Python code and generates real-time, step-by-step visualizations tied directly to execution. It automatically detects data structures (arrays, matrices, stacks, queues), renders pointer positions dynamically, and highlights errors exactly where they occur.
+![Code-Viz](https://img.shields.io/badge/Code--Viz-Algorithm%20Studio-34d399?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzNiAzNiI+PHBhdGggZD0iTTE4IDIgTDMyIDEwIEwzMiAyNiBMMTggMzQgTDQgMjYgTDQgMTBaIiBzdHJva2U9IiMzNGQzOTkiIHN0cm9rZS13aWR0aD0iMS41IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTEyIDE0IEw3IDE4IEwxMiAyMiIgc3Ryb2tlPSIjMzRkMzk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik0yNCAxNCBMMjkgMTggTDI0IDIyIiBzdHJva2U9IiM4MjhjZjgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGNpcmNsZSBjeD0iMTgiIGN5PSIxOCIgcj0iMiIgZmlsbD0iI2ZiYmYyNCIvPjwvc3ZnPg==)
 
 ---
 
 ## Features
 
-- **Live execution tracing** — `sys.settrace` captures every line, call, and return event
-- **Array visualization** — indexed blocks with animated pointer arrows (left/right/mid/i/j/k)
-- **Binary search zone** — eliminated regions grey out as the search space narrows
-- **Matrix/DP table** — 2D arrays rendered as grids with active cell highlighting
-- **Variable inspector** — all locals/globals with type-colored values and change detection
-- **Call stack panel** — live frame tracking with depth visualization
-- **Output/error panel** — stdout streaming + rich error display with line numbers
-- **Scrubber timeline** — drag to any step, full playback controls, adjustable speed
-- **8 built-in examples** — binary search, bubble sort, merge sort, two-pointers, DP LCS, and more
-- **Security sandbox** — blocked system imports, step limits, timeout enforcement
+### Execution Engine
+- **Python `sys.settrace`** — captures every line, call, return and exception event natively
+- Step limit (5000) + 8s timeout — infinite loops are safely caught
+- Security sandbox — `os`, `sys`, `socket`, `subprocess` and all dangerous builtins blocked
+- Precise error line numbers extracted from traceback
+
+### Live Variable Tracking
+- Every local variable gets a **typed card** that updates at each execution step
+- **4-layer change indication** — impossible to miss:
+  1. `CHANGED` / `NEW` pill badge animates in with a spring
+  2. Entire card flashes amber for 1.2 seconds
+  3. New value pops to 1.22× scale with colour burst
+  4. Previous value appears crossed out above new value
+- Type-coded icons: `#` int, `"` str, `[` list, `{` dict, `?` bool, `∅` None
+- Timeline strip — every step is a dot; blue = variable changed, red = error
+
+### Visualization
+- **Arrays** — indexed blocks with animated pointer arrows (left/right/mid/i/j/k)
+- **Binary search zone** — eliminated regions dim out as search space collapses
+- **DP/2D matrix** — grid with active cell highlight, row/col crosshairs
+- **Call stack** — live frame tracking with depth
+
+### Themes — 4 Combinations
+| | Dark | Light |
+|---|---|---|
+| **Glass** | Apple-style frosted panels, emerald accent | White frosted, teal accent |
+| **Noir** | Pure black, orange-red accent | Off-white, burnt orange |
+
+Toggle between Glass ↔ Noir and Dark ↔ Light from the header — **preference is persisted** across sessions via localStorage.
+
+### Editor
+- CodeMirror 6 with full Python syntax highlighting
+- Active execution line highlighted in gold
+- `Ctrl+Enter` shortcut to run
+- 8 built-in examples (Binary Search, Bubble Sort, Merge Sort, Two Pointers, DP LCS…)
 
 ---
 
@@ -25,156 +50,105 @@ AlgoViz is a high-performance web platform that interprets your Python code and 
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, Vite, Zustand, Framer Motion |
-| Code Editor | CodeMirror 6 (`@uiw/react-codemirror`) |
-| Backend | Python FastAPI, Uvicorn |
-| Execution | `sys.settrace` (CPython native tracer) |
-| Styling | Pure CSS with custom design system |
+| Frontend | React 18, Vite, Zustand (with persist), Framer Motion |
+| Editor | CodeMirror 6 (`@uiw/react-codemirror`) |
+| Icons | Lucide React |
+| Backend | FastAPI, Uvicorn |
+| Execution | Python `sys.settrace` |
+| Styling | Pure CSS with 4-theme design system |
 
 ---
 
 ## Project Structure
 
 ```
-algoviz/
+algoviz/                          ← root (rename to code-viz if you like)
 ├── backend/
-│   ├── main.py          # FastAPI app — /execute, /execute/stream, /health
-│   ├── executor.py      # Python tracer engine (sys.settrace + sandboxing)
+│   ├── main.py                   ← FastAPI app
+│   ├── executor.py               ← sys.settrace engine + security sandbox
 │   ├── requirements.txt
+│   ├── Dockerfile
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx                        # Root layout
-│   │   ├── store/index.js                 # Zustand global state
-│   │   ├── hooks/usePlayback.js           # Auto-step interval hook
-│   │   ├── utils/vizMapper.js             # Trace → visualization data mappers
-│   │   ├── styles/globals.css             # Design system (CSS variables)
-│   │   ├── components/
-│   │   │   ├── Editor/CodeEditor.jsx      # CodeMirror with live line highlight
-│   │   │   ├── Visualizer/
-│   │   │   │   ├── VisualizationPanel.jsx # Tab orchestrator
-│   │   │   │   ├── ArrayVisualizer.jsx    # Animated array + pointers
-│   │   │   │   ├── MatrixVisualizer.jsx   # 2D DP table renderer
-│   │   │   │   └── CallStackVisualizer.jsx
-│   │   │   ├── Controls/Controls.jsx      # Run, play/pause, scrubber, speed
-│   │   │   ├── Layout/Header.jsx          # Brand + example selector
-│   │   │   └── panels/
-│   │   │       ├── VariablesPanel.jsx     # Locals/globals inspector
-│   │   │       └── OutputPanel.jsx        # stdout + error display
-│   │   └── main.jsx
-│   ├── public/favicon.svg
+│   │   ├── App.jsx               ← root layout + theme attribute injection
+│   │   ├── App.css               ← layout + ambient orbs
+│   │   ├── store/index.js        ← Zustand store with theme persistence
+│   │   ├── hooks/usePlayback.js  ← auto-step interval hook
+│   │   ├── utils/vizMapper.js    ← trace → visual data mappers
+│   │   ├── styles/globals.css    ← 4-theme CSS variable system
+│   │   └── components/
+│   │       ├── Layout/Header.jsx          ← Code-Viz brand + theme toggles
+│   │       ├── Editor/CodeEditor.jsx      ← CodeMirror + line highlight
+│   │       ├── Controls/Controls.jsx      ← playback bar
+│   │       ├── Visualizer/
+│   │       │   ├── VisualizationPanel.jsx
+│   │       │   ├── ArrayVisualizer.jsx    ← array + pointers + elimination
+│   │       │   └── MatrixVisualizer.jsx   ← 2D DP table
+│   │       └── panels/
+│   │           └── LiveVariablesPanel.jsx ← live var cards + timeline
+│   ├── public/favicon.svg        ← Code-Viz hexagon logo
 │   ├── index.html
-│   ├── vite.config.js
 │   └── package.json
+├── docker-compose.yml
 ├── .gitignore
 └── README.md
 ```
 
 ---
 
-## Getting Started
+## Quick Start (Windows PowerShell)
 
-### Prerequisites
-
-- **Python 3.10+**
-- **Node.js 18+**
-
----
-
-### 1. Backend Setup
-
-```bash
+### Backend
+```powershell
 cd backend
-
-# Create and activate virtual environment
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
-# Install dependencies
+venv\Scripts\activate
 pip install -r requirements.txt
-
-# Copy env config
-cp .env.example .env
-
-# Start the server
 uvicorn main:app --reload --port 8000
 ```
 
-The API will be live at `http://localhost:8000`.  
-Swagger docs available at `http://localhost:8000/docs`.
-
----
-
-### 2. Frontend Setup
-
-```bash
+### Frontend (new terminal)
+```powershell
 cd frontend
-
-# Install dependencies
 npm install
-
-# Copy env config
-cp .env.example .env
-
-# Start dev server
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+Open **http://localhost:5173**
+
+### Keyboard shortcut
+`Ctrl + Enter` — run the code in the editor
 
 ---
 
-### 3. Quick Test
-
-Once both servers are running:
-
-1. The editor loads with a binary search example
-2. Press **Run** (or `Ctrl+Enter`)
-3. Watch the array render with animated `left`, `right`, `mid` pointers
-4. Use the scrubber or arrow buttons to step through execution
-5. Switch tabs to inspect Variables, Call Stack, or Output
-
----
-
-## API Reference
+## API
 
 ### `POST /execute`
-
-Execute Python code and return the full trace.
-
-**Request:**
 ```json
 {
-  "code": "arr = [1,3,5]\nfor i in range(len(arr)):\n    print(arr[i])",
+  "code": "arr = [1,3,5]\nfor i,v in enumerate(arr):\n    print(i,v)",
   "language": "python",
-  "inputs": [],
   "max_steps": 5000
 }
 ```
+Returns `{ "trace": [...], "total_steps": N }`.
 
-**Response:**
+Each trace step:
 ```json
 {
-  "trace": [
-    {
-      "step": 0,
-      "line": 1,
-      "event": "line",
-      "locals": { "arr": { "type": "list", "value": [...], "length": 3 } },
-      "globals": {},
-      "call_stack": [{ "function": "<module>", "line": 1 }],
-      "stdout": "",
-      "error": null,
-      "structure_hints": { "arr": "array" },
-      "return_value": null
-    }
-  ],
-  "total_steps": 42
+  "step": 4,
+  "line": 2,
+  "event": "line",
+  "locals": { "arr": {"type":"list","value":[...],"length":3}, "i": {"type":"int","value":1} },
+  "call_stack": [{"function":"<module>","line":2}],
+  "stdout": "",
+  "error": null,
+  "structure_hints": { "arr": "array" }
 }
 ```
 
 ### `GET /health`
-
 Returns `{ "status": "ok" }`.
 
 ---
@@ -183,44 +157,40 @@ Returns `{ "status": "ok" }`.
 
 | Threat | Mitigation |
 |---|---|
-| Dangerous imports (`os`, `sys`, `socket`…) | AST pre-scan blocks before execution |
-| Infinite loops | Hard step limit (5000) + 8s timeout |
-| File system access | `open()` removed from builtins |
-| Network calls | `socket`, `requests`, `urllib` blocked |
-| `exec`/`eval` abuse | `exec`, `compile`, `__import__` blocked |
-| Resource exhaustion | Timeout thread kills hung execution |
-
-> **Note:** For production deployment, wrap the backend in Docker with no-network and read-only filesystem constraints. See the architecture doc for details.
+| `import os/sys/socket/subprocess` | AST pre-scan raises `SecurityError` before execution |
+| Infinite loops | Step limit 5000 + 8s thread timeout |
+| `open()`, `exec()`, `__import__` | Removed from custom `__builtins__` |
+| Resource exhaustion | 8s wall-clock timeout kills the thread |
 
 ---
 
-## Extending AlgoViz
+## Extending
 
-### Adding a New Data Structure Visualizer
+### Add a new algorithm sample
+Edit the `SAMPLES` array in `src/components/Layout/Header.jsx`.
 
-1. Add detection logic in `frontend/src/utils/vizMapper.js` — the `detect_structure_hints()` function on the backend and `getPrimaryArray()`/`getMatrix()` on the frontend show the pattern.
-2. Create a new `YourVisualizer.jsx` component in `src/components/Visualizer/`.
-3. Import and render it inside `VisualizationPanel.jsx`.
+### Add a new visualizer
+1. Add detection in `backend/executor.py → detect_structure_hints()`
+2. Create `src/components/Visualizer/YourVisualizer.jsx`
+3. Import and render it in `VisualizationPanel.jsx`
 
-### Adding a New Sample Algorithm
-
-Add an entry to the `SAMPLE_ALGORITHMS` array in `src/components/Layout/Header.jsx`.
+### Change accent colour
+Override `--accent` in `src/styles/globals.css` for the relevant `[data-theme][data-mode]` selector.
 
 ---
 
 ## Roadmap
 
-- [ ] JavaScript execution support (Babel instrumentation + isolated-vm)
-- [ ] Linked list node visualization
+- [ ] JavaScript support (Babel instrumentation + isolated-vm)
+- [ ] Linked list node + pointer arrow visualization
 - [ ] Binary tree / graph visualization (React Flow)
 - [ ] Recursion tree with collapse/expand
-- [ ] LLM-powered "why did this fail" explanations
+- [ ] LLM-powered "why did this fail" explanation
 - [ ] Shareable trace URLs
-- [ ] User accounts + saved snippets
-- [ ] Docker Compose for one-command startup
+- [ ] Docker one-command startup
 
 ---
 
 ## License
 
-MIT — build whatever you want on top of this.
+MIT

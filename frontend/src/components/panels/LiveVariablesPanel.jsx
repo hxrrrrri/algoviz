@@ -1,126 +1,148 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
 import { displayValue } from '../../utils/vizMapper';
 import './LiveVariablesPanel.css';
 
-/* ── colour per type ── */
-const TYPE_COLOR = {
-  int:    { gem: '◆', color: '#4fc3f7', bg: 'rgba(79,195,247,0.08)'  },
-  float:  { gem: '◆', color: '#4fc3f7', bg: 'rgba(79,195,247,0.08)'  },
-  str:    { gem: '◇', color: '#4ade80', bg: 'rgba(74,222,128,0.08)'  },
-  bool:   { gem: '●', color: '#c084fc', bg: 'rgba(192,132,252,0.08)' },
-  list:   { gem: '▣', color: '#fb923c', bg: 'rgba(251,146,60,0.08)'  },
-  tuple:  { gem: '▣', color: '#fb923c', bg: 'rgba(251,146,60,0.08)'  },
-  dict:   { gem: '⬡', color: '#f5c842', bg: 'rgba(245,200,66,0.08)'  },
-  none:   { gem: '○', color: '#7a7668', bg: 'rgba(122,118,104,0.06)' },
-  object: { gem: '⬟', color: '#c084fc', bg: 'rgba(192,132,252,0.08)' },
-  set:    { gem: '◉', color: '#fb923c', bg: 'rgba(251,146,60,0.08)'  },
+/* ── Per-type config ── */
+const TYPE_CFG = {
+  int:    { icon:'#', label:'int',   color:'var(--accent-5)' },
+  float:  { icon:'#', label:'float', color:'var(--accent-5)' },
+  str:    { icon:'"', label:'str',   color:'var(--accent-3)' },
+  bool:   { icon:'?', label:'bool',  color:'var(--accent-2)' },
+  list:   { icon:'[', label:'list',  color:'var(--accent)'   },
+  tuple:  { icon:'(', label:'tuple', color:'var(--accent)'   },
+  dict:   { icon:'{', label:'dict',  color:'var(--accent-4)' },
+  set:    { icon:'{', label:'set',   color:'var(--accent-4)' },
+  none:   { icon:'∅', label:'None',  color:'var(--text-3)'   },
+  object: { icon:'⬡', label:'obj',   color:'var(--accent-2)' },
 };
-const DEFAULT_TYPE = { gem: '◈', color: '#c8c4b8', bg: 'rgba(200,196,184,0.06)' };
+const defaultCfg = { icon:'~', label:'?', color:'var(--text-2)' };
+const cfg = (type) => TYPE_CFG[type] || defaultCfg;
 
-function getTypeMeta(type) { return TYPE_COLOR[type] || DEFAULT_TYPE; }
-
-/* shorten display value */
-function shortVal(repr, maxLen = 32) {
-  const v = displayValue(repr, maxLen);
-  return v.length > maxLen ? v.slice(0, maxLen) + '…' : v;
+function shortVal(repr, max = 30) {
+  const v = displayValue(repr, max);
+  return v.length > max ? v.slice(0, max) + '…' : v;
 }
 
-/* build a history entry comparing current vs previous locals */
+/* ── Diff engine ── */
 function diffLocals(curr, prev) {
-  const keys = new Set([...Object.keys(curr), ...Object.keys(prev)]);
-  const result = [];
+  const keys = new Set([...Object.keys(curr||{}), ...Object.keys(prev||{})]);
+  const out = [];
   for (const k of keys) {
     if (k.startsWith('__')) continue;
-    const cur = curr[k];
-    const prv = prev[k];
-    const curStr = cur ? displayValue(cur, 80) : undefined;
-    const prvStr = prv ? displayValue(prv, 80) : undefined;
-    const isNew     = !prv && !!cur;
-    const isChanged = !!prv && !!cur && curStr !== prvStr;
-    const isRemoved = !!prv && !cur;
-    result.push({ name: k, repr: cur || prv, curStr, prvStr, isNew, isChanged, isRemoved });
+    const c = curr?.[k], p = prev?.[k];
+    const cv = c ? displayValue(c, 120) : undefined;
+    const pv = p ? displayValue(p, 120) : undefined;
+    out.push({
+      name: k,
+      repr: c || p,
+      curStr: cv,
+      prvStr: pv,
+      isNew:     !p && !!c,
+      isChanged: !!p && !!c && cv !== pv,
+      isRemoved: !!p && !c,
+    });
   }
-  return result.filter(r => r.repr);
+  return out.filter(r => r.repr);
 }
 
-/* single variable card */
-function VarCard({ name, repr, isNew, isChanged, prvStr }) {
-  const meta    = getTypeMeta(repr?.type);
+/* ── Variable Row ── */
+function VarRow({ name, repr, isNew, isChanged, prvStr, stepKey }) {
+  const c         = cfg(repr?.type);
   const [flash, setFlash] = useState(false);
-  const prevChanged = useRef(false);
+  const [popVal, setPopVal] = useState(false);
+  const mountedRef = useRef(false);
+  const prevKey    = useRef(stepKey);
 
   useEffect(() => {
-    if ((isNew || isChanged) && !prevChanged.current) {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    if (stepKey !== prevKey.current && (isNew || isChanged)) {
+      prevKey.current = stepKey;
       setFlash(true);
-      const t = setTimeout(() => setFlash(false), 900);
-      prevChanged.current = true;
-      return () => clearTimeout(t);
+      setPopVal(true);
+      const t1 = setTimeout(() => setFlash(false), 1200);
+      const t2 = setTimeout(() => setPopVal(false), 500);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
-    if (!isNew && !isChanged) prevChanged.current = false;
-  }, [isNew, isChanged, repr]);
+    prevKey.current = stepKey;
+  }, [stepKey, isNew, isChanged]);
 
-  const val = shortVal(repr, 36);
-  const typeLabel = repr?.type || '?';
+  const val = shortVal(repr, 28);
 
   return (
     <motion.div
-      className={`var-card ${flash ? 'flash' : ''} ${isNew ? 'is-new' : ''}`}
-      style={{ '--card-color': meta.color, '--card-bg': meta.bg }}
+      className={`vr ${flash ? 'vr-flash' : ''} ${isNew ? 'vr-new' : ''}`}
+      style={{ '--vc': c.color }}
       layout
-      initial={{ opacity: 0, x: 12 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -8, height: 0, marginBottom: 0 }}
-      transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+      initial={{ opacity:0, x:16, scale:0.96 }}
+      animate={{ opacity:1, x:0, scale:1 }}
+      exit={{ opacity:0, x:-10, height:0, marginBottom:0, padding:0 }}
+      transition={{ type:'spring', stiffness:400, damping:32 }}
     >
-      <div className="var-card-left">
-        <span className="var-gem">{meta.gem}</span>
-        <div className="var-info">
-          <span className="var-name">{name}</span>
-          <span className="var-type">{typeLabel}</span>
-        </div>
+      {/* Left accent bar */}
+      <div className="vr-bar" />
+
+      {/* Type badge */}
+      <div className="vr-type-badge">{c.icon}</div>
+
+      {/* Name + type label */}
+      <div className="vr-meta">
+        <span className="vr-name">{name}</span>
+        <span className="vr-type-label">{c.label}</span>
       </div>
 
-      <div className="var-card-right">
+      {/* Value */}
+      <div className="vr-val-wrap">
         {isChanged && prvStr && (
-          <div className="var-prev">{shortVal({ type: 'str', value: prvStr }, 20)}</div>
+          <motion.div className="vr-prev"
+            initial={{ opacity:1 }} animate={{ opacity:0.5 }}
+            transition={{ duration:0.6 }}>
+            {shortVal({ type:'str', value: prvStr }, 18)}
+          </motion.div>
         )}
         <motion.div
-          className="var-value"
           key={val}
-          initial={isChanged || isNew ? { scale: 1.1, color: '#f5c842' } : false}
-          animate={{ scale: 1, color: meta.color }}
-          transition={{ duration: 0.35 }}
+          className={`vr-val ${popVal ? 'vr-val-pop' : ''}`}
+          animate={popVal ? { scale:[1.22,1], color:['var(--change-text)','var(--vc)'] } : {}}
+          transition={{ duration:0.4 }}
         >
           {val}
         </motion.div>
       </div>
 
-      {(isNew || isChanged) && <div className="var-change-dot" />}
+      {/* Change indicator — the big visual attention grab */}
+      <AnimatePresence>
+        {flash && (
+          <motion.div className="vr-changed-tag"
+            initial={{ opacity:0, scale:0.6, x:6 }}
+            animate={{ opacity:1, scale:1, x:0 }}
+            exit={{ opacity:0, scale:0.7 }}
+            transition={{ type:'spring', stiffness:500, damping:28 }}>
+            {isNew ? 'NEW' : 'CHANGED'}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
 
-/* history timeline strip at bottom */
-function HistoryStrip({ history, currentStep, onJump }) {
-  const scrollRef = useRef(null);
+/* ── Timeline dots ── */
+function Timeline({ history, current, onJump }) {
+  const ref = useRef(null);
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
-    }
+    if (ref.current) ref.current.scrollLeft = ref.current.scrollWidth;
   }, [history.length]);
 
   return (
-    <div className="history-strip">
-      <div className="history-label">TIMELINE</div>
-      <div className="history-scroll" ref={scrollRef}>
+    <div className="tl">
+      <span className="tl-label">TIMELINE</span>
+      <div className="tl-track" ref={ref}>
         {history.map((h, i) => (
-          <button
-            key={i}
-            className={`history-tick ${i === currentStep ? 'active' : ''} ${h.hasChange ? 'has-change' : ''} ${h.hasError ? 'has-error' : ''}`}
+          <button key={i}
+            className={`tl-dot ${i===current?'tl-active':''} ${h.hasChange?'tl-change':''} ${h.hasError?'tl-error':''}`}
             onClick={() => onJump(i)}
-            title={`Step ${i + 1} — line ${h.line}`}
+            title={`Step ${i+1} · line ${h.line}`}
           />
         ))}
       </div>
@@ -128,113 +150,116 @@ function HistoryStrip({ history, currentStep, onJump }) {
   );
 }
 
+/* ── Main Panel ── */
 export default function LiveVariablesPanel() {
-  const trace       = useStore(s => s.trace);
-  const currentStep = useStore(s => s.currentStep);
+  const trace          = useStore(s => s.trace);
+  const currentStep    = useStore(s => s.currentStep);
   const setCurrentStep = useStore(s => s.setCurrentStep);
-  const setPlaying  = useStore(s => s.setPlaying);
+  const setPlaying     = useStore(s => s.setPlaying);
 
-  const stepData = trace[currentStep] || null;
-  const prevStep = currentStep > 0 ? trace[currentStep - 1] : null;
+  const step     = trace[currentStep]  || null;
+  const prevStep = currentStep > 0 ? trace[currentStep-1] : null;
 
-  const locals  = stepData?.locals  || {};
+  const locals     = step?.locals  || {};
   const prevLocals = prevStep?.locals || {};
-  const hints   = stepData?.structure_hints || {};
+  const vars       = useMemo(() => diffLocals(locals, prevLocals), [locals, prevLocals]);
 
-  /* diff variables */
-  const vars = useMemo(() => diffLocals(locals, prevLocals), [locals, prevLocals]);
-
-  /* build timeline history */
   const history = useMemo(() => trace.map((s, i) => {
-    const prev = i > 0 ? trace[i-1] : null;
-    const hasChange = prev ? Object.keys(s.locals || {}).some(k => {
-      const cv = displayValue(s.locals[k], 80);
-      const pv = prev.locals?.[k] ? displayValue(prev.locals[k], 80) : null;
+    const p = i > 0 ? trace[i-1] : null;
+    const hasChange = p ? Object.keys(s.locals||{}).some(k => {
+      const cv = displayValue(s.locals[k], 120);
+      const pv = p.locals?.[k] ? displayValue(p.locals[k], 120) : null;
       return pv !== null && cv !== pv;
     }) : false;
     return { line: s.line, hasChange, hasError: s.event === 'error' };
   }), [trace]);
 
-  const callStack  = stepData?.call_stack || [];
-  const stdout     = stepData?.stdout || '';
-  const isError    = stepData?.event === 'error';
-  const errorInfo  = stepData?.error;
-  const currentLine = stepData?.line;
+  const jump = useCallback((i) => { setPlaying(false); setCurrentStep(i); }, []);
 
-  const hasVars = vars.length > 0;
+  const callStack = step?.call_stack || [];
+  const stdout    = step?.stdout || '';
+  const isError   = step?.event === 'error';
+  const errorInfo = step?.error;
+  const hasVars   = vars.length > 0;
+
+  const changedCount = vars.filter(v => v.isNew || v.isChanged).length;
 
   return (
     <div className="lvp">
       {/* Header */}
-      <div className="lvp-header">
+      <div className="lvp-hdr">
         <div className="lvp-title">
-          <span className="lvp-gem">◈</span>
-          Live Variables
+          <span className="lvp-title-icon">⟨/⟩</span>
+          Variables
         </div>
-        {currentLine && (
-          <div className="lvp-line-badge">line {currentLine}</div>
-        )}
+        <div className="lvp-meta">
+          {step?.line && <span className="lvp-line">line {step.line}</span>}
+          {changedCount > 0 && (
+            <motion.span className="lvp-changed-count"
+              key={`${currentStep}-${changedCount}`}
+              initial={{ scale:1.4 }} animate={{ scale:1 }}
+              transition={{ type:'spring', stiffness:500, damping:25 }}>
+              {changedCount} changed
+            </motion.span>
+          )}
+        </div>
       </div>
 
-      {/* Empty state */}
+      {/* Empty */}
       {!trace.length && (
         <div className="lvp-empty">
-          <div className="lvp-empty-icon">◈</div>
-          <div>Run your code to<br/>inspect variables</div>
+          <div className="lvp-empty-icon">⟨/⟩</div>
+          <p>Run code to track<br/>live variable state</p>
         </div>
       )}
 
-      {/* Variable cards */}
+      {/* Variables */}
       {trace.length > 0 && (
-        <div className="lvp-vars-scroll">
-          {!hasVars && (
-            <div className="lvp-no-vars">No local variables yet</div>
-          )}
+        <div className="lvp-vars">
+          {!hasVars && <div className="lvp-no-vars">No variables in scope</div>}
           <AnimatePresence mode="popLayout">
             {vars.map(v => (
-              <VarCard
-                key={v.name}
-                name={v.name}
-                repr={v.repr}
-                isNew={v.isNew}
-                isChanged={v.isChanged}
+              <VarRow key={v.name}
+                name={v.name} repr={v.repr}
+                isNew={v.isNew} isChanged={v.isChanged}
                 prvStr={v.prvStr}
+                stepKey={currentStep}
               />
             ))}
           </AnimatePresence>
         </div>
       )}
 
-      {/* Call stack section */}
+      {/* Call Stack */}
       {callStack.length > 0 && (
         <div className="lvp-section">
-          <div className="lvp-section-title">◇ Call Stack</div>
-          {[...callStack].reverse().map((frame, i) => (
-            <div key={i} className={`cs-frame ${i === 0 ? 'top' : ''}`}>
-              <span className="cs-icon">{i === 0 ? '▶' : '·'}</span>
-              <span className="cs-fn">{frame.function}</span>
-              <span className="cs-line">:{frame.line}</span>
+          <div className="lvp-section-hdr">Call Stack</div>
+          {[...callStack].reverse().map((f, i) => (
+            <div key={i} className={`lvp-frame ${i===0?'lvp-frame-top':''}`}>
+              <span className="lvp-frame-arrow">{i===0?'▶':'·'}</span>
+              <span className="lvp-frame-fn">{f.function}</span>
+              <span className="lvp-frame-ln">:{f.line}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Error display */}
+      {/* Error */}
       {isError && errorInfo && (
         <div className="lvp-error">
-          <div className="lvp-error-type">⚠ {errorInfo.type}</div>
+          <div className="lvp-error-hdr">⚠ {errorInfo.type}</div>
           <div className="lvp-error-msg">{errorInfo.message}</div>
-          {errorInfo.line && <div className="lvp-error-line">at line {errorInfo.line}</div>}
+          {errorInfo.line && <div className="lvp-error-ln">line {errorInfo.line}</div>}
         </div>
       )}
 
       {/* Stdout */}
       {stdout && (
         <div className="lvp-section">
-          <div className="lvp-section-title">◇ Output</div>
-          <div className="lvp-stdout">
-            {stdout.trim().split('\n').map((l, i) => (
-              <div key={i} className="lvp-out-line">
+          <div className="lvp-section-hdr">Output</div>
+          <div className="lvp-out">
+            {stdout.trim().split('\n').slice(-6).map((l,i) => (
+              <div key={i} className="lvp-out-row">
                 <span className="lvp-out-arrow">›</span>{l}
               </div>
             ))}
@@ -242,13 +267,9 @@ export default function LiveVariablesPanel() {
         </div>
       )}
 
-      {/* Timeline strip */}
+      {/* Timeline */}
       {trace.length > 0 && (
-        <HistoryStrip
-          history={history}
-          currentStep={currentStep}
-          onJump={(i) => { setPlaying(false); setCurrentStep(i); }}
-        />
+        <Timeline history={history} current={currentStep} onJump={jump} />
       )}
     </div>
   );

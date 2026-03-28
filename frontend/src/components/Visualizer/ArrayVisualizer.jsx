@@ -1,78 +1,69 @@
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { getPrimaryArray, getPointers, getPointerStyle } from '../../utils/vizMapper';
 import './ArrayVisualizer.css';
 
-const CELL_W = 56, CELL_H = 56, GAP = 8;
+const CW=54, CH=54, GAP=6;
 
 export default function ArrayVisualizer({ stepData }) {
   const { locals, structure_hints: hints } = stepData || {};
-  const arrayData = useMemo(() => getPrimaryArray(locals, hints), [locals, hints]);
-  const pointers  = useMemo(() => getPointers(locals), [locals]);
+  const arrData = useMemo(() => getPrimaryArray(locals, hints), [locals, hints]);
+  const ptrs    = useMemo(() => getPointers(locals), [locals]);
+  if (!arrData?.values?.length) return null;
 
-  if (!arrayData || !arrayData.values.length) return null;
-  const { name, values } = arrayData;
+  const { name, values } = arrData;
+  const lp = ptrs['left']??ptrs['l']??ptrs['low']??ptrs['start']??null;
+  const rp = ptrs['right']??ptrs['r']??ptrs['high']??ptrs['end']??null;
+  const mp = ptrs['mid']??ptrs['m']??ptrs['middle']??null;
 
-  const leftPtr  = pointers['left']  ?? pointers['l']   ?? pointers['low']   ?? pointers['start'] ?? null;
-  const rightPtr = pointers['right'] ?? pointers['r']   ?? pointers['high']  ?? pointers['end']   ?? null;
-  const midPtr   = pointers['mid']   ?? pointers['m']   ?? pointers['middle'] ?? null;
+  const byIdx = {};
+  for (const [n,v] of Object.entries(ptrs))
+    if (typeof v==='number' && v>=0 && v<values.length)
+      (byIdx[v]=byIdx[v]||[]).push(n);
 
-  const pointersByIdx = {};
-  for (const [pName, pIdx] of Object.entries(pointers)) {
-    if (typeof pIdx === 'number' && pIdx >= 0 && pIdx < values.length) {
-      (pointersByIdx[pIdx] = pointersByIdx[pIdx] || []).push(pName);
-    }
-  }
-
-  const getCellState = (i) => {
-    if (i === midPtr) return 'mid';
-    if (leftPtr !== null && rightPtr !== null && (i < leftPtr || i > rightPtr)) return 'eliminated';
-    if (i === leftPtr || i === rightPtr) return 'boundary';
-    if (pointersByIdx[i]) return 'active';
-    return 'normal';
+  const st = (i) => {
+    if (i===mp) return 'st-mid';
+    if (lp!==null&&rp!==null&&(i<lp||i>rp)) return 'st-eliminated';
+    if (i===lp||i===rp) return 'st-boundary';
+    if (byIdx[i]) return 'st-active';
+    return 'st-normal';
   };
 
   return (
     <div className="av">
-      <div className="av-label">
+      <div className="av-header">
         <span className="av-name">{name}</span>
         <span className="av-len">[{values.length}]</span>
-        {Object.keys(pointers).length > 0 && (
+        {Object.keys(ptrs).length>0 && (
           <div className="av-ptr-pills">
-            {Object.entries(pointers)
-              .sort((a,b) => (getPointerStyle(a[0]).priority||99)-(getPointerStyle(b[0]).priority||99))
-              .map(([n,v]) => {
-                const s = getPointerStyle(n);
-                return (
-                  <span key={n} className="ptr-pill" style={{'--pc': s.color}}>
-                    {n} = {v}
-                  </span>
-                );
-              })}
+            {Object.entries(ptrs)
+              .sort((a,b)=>(getPointerStyle(a[0]).priority||99)-(getPointerStyle(b[0]).priority||99))
+              .map(([n,v])=>(
+                <span key={n} className="ptr-pill" style={{'--pc':getPointerStyle(n).color}}>
+                  {n} = {v}
+                </span>
+              ))}
           </div>
         )}
       </div>
 
       <div className="av-stage">
-        {/* Pointer arrows above cells */}
-        <div className="av-ptr-row" style={{ width: values.length*(CELL_W+GAP)-GAP }}>
-          {Object.entries(pointersByIdx).map(([idx, ptrs]) => {
-            const x = parseInt(idx)*(CELL_W+GAP) + CELL_W/2;
+        {/* Pointer arrows */}
+        <div className="av-ptr-row" style={{width:values.length*(CW+GAP)-GAP}}>
+          {Object.entries(byIdx).map(([idx,names])=>{
+            const x=parseInt(idx)*(CW+GAP)+CW/2;
+            const s=getPointerStyle(names[0]);
             return (
-              <div key={idx} className="av-ptr-col" style={{ left: x-28, width: 56 }}>
-                {ptrs.map(p => {
-                  const s = getPointerStyle(p);
-                  return (
-                    <motion.div key={p} className="av-ptr-tag"
-                      style={{'--pc': s.color}}
-                      layoutId={`ptr-${p}`}
-                      layout
-                      transition={{ type:'spring', stiffness:380, damping:28 }}>
-                      {p}
-                    </motion.div>
-                  );
-                })}
-                <div className="av-ptr-arrow" style={{'--pc': getPointerStyle(ptrs[0]).color}} />
+              <div key={idx} className="av-ptr-col" style={{left:x-28,width:56}}>
+                {names.map(n=>(
+                  <motion.div key={n} className="av-ptr-tag"
+                    style={{'--pc':getPointerStyle(n).color}}
+                    layoutId={`ptr-${n}`} layout
+                    transition={{type:'spring',stiffness:380,damping:28}}>
+                    {n}
+                  </motion.div>
+                ))}
+                <div className="av-ptr-arrow" style={{'--pc':s.color}}/>
               </div>
             );
           })}
@@ -80,50 +71,31 @@ export default function ArrayVisualizer({ stepData }) {
 
         {/* Cells */}
         <div className="av-cells">
-          {values.map((val, i) => {
-            const state = getCellState(i);
-            let disp = val === null ? 'None' : String(val).slice(0,6);
-            if (typeof val === 'object' && val !== null) disp = '{…}';
-
+          {values.map((val,i)=>{
+            const state=st(i);
+            let d=val===null?'None':String(val).slice(0,6);
+            if(typeof val==='object'&&val!==null)d='{…}';
             return (
-              <motion.div key={i}
-                className={`av-cell state-${state}`}
-                style={{ width: CELL_W, height: CELL_H }}
-                layout
-                layoutId={`cell-${name}-${i}`}
+              <motion.div key={i} className={`av-cell ${state}`}
+                style={{width:CW,height:CH}}
+                layout layoutId={`cell-${name}-${i}`}
                 animate={{
-                  scale:   state==='mid' ? 1.14 : state==='active'||state==='boundary' ? 1.06 : 1,
-                  opacity: state==='eliminated' ? 0.22 : 1,
-                  y:       state==='mid' ? -4 : 0,
+                  scale:state==='st-mid'?1.14:state==='st-active'||state==='st-boundary'?1.06:1,
+                  y:state==='st-mid'?-5:0,
                 }}
-                transition={{ type:'spring', stiffness:340, damping:26 }}>
-                {/* 3D face shine */}
-                <div className="av-cell-shine" />
-                <span className="av-cell-val">{disp}</span>
+                transition={{type:'spring',stiffness:340,damping:26}}>
+                <span className="av-cell-val">{d}</span>
                 <span className="av-cell-idx">{i}</span>
-                {(state==='mid') && <div className="av-cell-glow" />}
               </motion.div>
             );
           })}
         </div>
 
-        {/* Elimination overlay bars */}
-        {leftPtr !== null && rightPtr !== null && (
-          <>
-            {leftPtr > 0 && (
-              <div className="av-elim-bar left" style={{
-                width: leftPtr*(CELL_W+GAP)-GAP/2,
-                left: 0
-              }}/>
-            )}
-            {rightPtr < values.length-1 && (
-              <div className="av-elim-bar right" style={{
-                width: (values.length-1-rightPtr)*(CELL_W+GAP)-GAP/2,
-                right: 0
-              }}/>
-            )}
-          </>
-        )}
+        {/* Elimination shades */}
+        {lp!==null&&rp!==null&&(<>
+          {lp>0&&<div className="av-elim-bar left" style={{width:lp*(CW+GAP)-GAP/2,left:0}}/>}
+          {rp<values.length-1&&<div className="av-elim-bar right" style={{width:(values.length-1-rp)*(CW+GAP)-GAP/2,right:0}}/>}
+        </>)}
       </div>
     </div>
   );
