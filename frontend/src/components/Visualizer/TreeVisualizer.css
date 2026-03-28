@@ -1,79 +1,153 @@
 /* ══ Tree Visualizer ══ */
-.tv { display: flex; flex-direction: column; gap: 12px; }
+.tv { display: flex; flex-direction: column; gap: 10px; }
 
-/* Header row */
+/* ── Header ── */
 .tv-label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tv-name  { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--accent-2); }
+.tv-name {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  color: var(--accent-2);
+}
 .tv-type-badge {
   font-size: 10px; font-weight: 600; color: var(--accent-2);
-  background: rgba(124,132,240,0.10);
-  border: 1px solid rgba(124,132,240,0.28);
+  background: rgba(124,132,240,0.10); border: 1px solid rgba(124,132,240,0.28);
   border-radius: 4px; padding: 1px 7px;
 }
-.tv-count {
-  font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
-}
+.tv-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
 .tv-new-badge {
+  display: inline-flex; align-items: center; gap: 4px;
   font-size: 9px; font-weight: 700; color: #000;
-  background: var(--accent); border-radius: 5px; padding: 1px 7px;
-  box-shadow: 0 0 8px var(--accent-glow);
+  background: var(--accent); border-radius: 5px; padding: 2px 8px;
+  box-shadow: 0 0 10px var(--accent-glow);
+  animation: tv-badge-pulse 1.4s ease-in-out infinite;
+}
+@keyframes tv-badge-pulse {
+  0%, 100% { box-shadow: 0 0 6px var(--accent-glow); }
+  50%       { box-shadow: 0 0 18px var(--accent-glow), 0 0 32px var(--accent-glow); }
 }
 
-/* Scroll container */
+/* ── Legend ── */
+.tv-legend {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 5px 10px; background: var(--bg-card);
+  border: 1px solid var(--border-2); border-radius: var(--radius-sm);
+  width: fit-content;
+}
+.tv-leg-item {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 2px 8px; border-radius: 4px; border: 1px solid;
+}
+.tv-leg-existing {
+  color: rgba(124,132,240,0.9); background: rgba(124,132,240,0.08);
+  border-color: rgba(124,132,240,0.25);
+}
+.tv-leg-edge {
+  color: rgba(99,179,237,0.9); background: rgba(99,179,237,0.08);
+  border-color: rgba(99,179,237,0.25);
+}
+.tv-leg-new {
+  color: rgba(45,212,160,0.95); background: rgba(45,212,160,0.1);
+  border-color: rgba(45,212,160,0.3);
+}
+.tv-leg-sep { font-size: 11px; color: var(--text-3); }
+
+/* ── Scroll container ── */
 .tv-scroll {
   overflow: auto; border-radius: var(--radius-md);
   background: var(--bg-base); border: 1px solid var(--border-2);
-  padding: 16px;
+  padding: 20px;
   display: flex; justify-content: center; align-items: flex-start;
 }
 [data-theme="glass"] .tv-scroll { background: rgba(255,255,255,0.02); }
-
 .tv-svg { display: block; overflow: visible; }
 
-/* ── Edges ── */
+/* ── Existing edges ── */
 .tv-edge {
-  stroke: var(--border-1); stroke-width: 1.8;
+  stroke: rgba(148,163,184,0.32); stroke-width: 1.8;
   stroke-linecap: round; fill: none;
 }
-[data-theme="glass"] .tv-edge { stroke: rgba(148,163,184,0.30); }
+[data-theme="glass"] .tv-edge { stroke: rgba(148,163,184,0.22); }
 
+/* New edge: bright blue draw-in */
 .tv-edge-new {
-  stroke: rgba(45,212,160,0.7) !important;
-  stroke-width: 2px !important;
+  stroke: rgba(99,179,237,0.85) !important;
+  stroke-width: 2.2px !important;
 }
 
-.tv-edge-label {
-  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
-  fill: var(--text-3); opacity: 0.6; pointer-events: none; user-select: none;
+/* New edge glow trail (rendered behind, wider + blurred) */
+.tv-edge-new-glow {
+  stroke: rgba(99,179,237,0.3);
+  stroke-width: 8px;
+  fill: none;
+  filter: blur(3px);
 }
 
-/* ── Nodes ── */
-.tv-node {
-  fill: var(--bg-card);
-  stroke: rgba(124,132,240,0.55);
-  stroke-width: 1.8;
-  transition: fill 0.15s, stroke 0.15s;
+/* ── L/R direction pills on edges ── */
+.tv-dir-pill {
+  opacity: 0.95;
 }
-[data-theme="glass"] .tv-node {
-  fill: color-mix(in srgb, #7c84f0 8%, var(--bg-card));
-}
+.tv-dir-pill-l { fill: rgba(0,229,255,0.18); stroke: rgba(0,229,255,0.45); stroke-width: 1; }
+.tv-dir-pill-r { fill: rgba(255,149,0,0.15); stroke: rgba(255,149,0,0.40); stroke-width: 1; }
+.tv-dir-pill-dim { opacity: 0.45; }
 
-.tv-node-new {
-  fill: color-mix(in srgb, rgba(45,212,160,1) 12%, var(--bg-card)) !important;
-  stroke: rgba(45,212,160,0.75) !important;
-  stroke-width: 2px !important;
-}
-
-/* Value text */
-.tv-node-val {
-  font-family: var(--font-mono);
-  font-size: 12px; font-weight: 700; fill: var(--text-1);
+.tv-dir-text {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
   pointer-events: none; user-select: none;
 }
-.tv-node-val-new { fill: rgba(45,212,160,1) !important; }
+.tv-dir-pill-l ~ .tv-dir-text, .tv-dir-text { fill: var(--text-2); }
+.tv-dir-text-dim { opacity: 0.5; }
 
-/* Depth label */
-.tv-node-depth {
-  font-family: var(--font-mono); font-size: 8px;
-  fill: var(--text-3); opacity: 0.55; pointer-events: none; user-select: none;
+/* ── Existing nodes ── */
+.tv-node {
+  fill: var(--bg-card);
+  stroke: rgba(124,132,240,0.5);
+  stroke-width: 1.8;
+  transition: fill 0.2s, stroke 0.2s;
 }
+[data-theme="glass"] .tv-node {
+  fill: color-mix(in srgb, #7c84f0 9%, var(--bg-card));
+}
+
+/* Parent node that is receiving a new child: green-tinged */
+.tv-node-parent {
+  stroke: rgba(45,212,160,0.7) !important;
+  stroke-width: 2.2px !important;
+  fill: color-mix(in srgb, rgba(45,212,160,1) 10%, var(--bg-card)) !important;
+}
+
+/* New node: blue */
+.tv-node-new {
+  fill: color-mix(in srgb, rgba(99,179,237,1) 14%, var(--bg-card)) !important;
+  stroke: rgba(99,179,237,0.8) !important;
+  stroke-width: 2.2px !important;
+}
+
+/* ── Node value text ── */
+.tv-node-val {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  fill: var(--text-1); pointer-events: none; user-select: none;
+}
+.tv-node-val-new { fill: rgba(99,179,237,1) !important; }
+
+/* ── Depth badge ── */
+.tv-depth-bg { fill: var(--bg-base); stroke: var(--border-2); stroke-width: 1; opacity: 0.9; }
+.tv-depth-bg-new { fill: rgba(99,179,237,0.15); stroke: rgba(99,179,237,0.4); }
+.tv-depth-text {
+  font-family: var(--font-mono); font-size: 7.5px; font-weight: 600;
+  fill: var(--text-3); pointer-events: none; user-select: none;
+}
+.tv-depth-text-new { fill: rgba(99,179,237,0.9) !important; }
+
+/* ── "NEW" floating tag ── */
+.tv-new-tag-bg { fill: rgba(99,179,237,0.2); stroke: rgba(99,179,237,0.5); stroke-width: 1; }
+.tv-new-tag-text {
+  font-family: var(--font-mono); font-size: 7.5px; font-weight: 800; letter-spacing: 0.06em;
+  fill: rgba(99,179,237,1); pointer-events: none; user-select: none;
+}
+
+/* ── Insert direction hint on parent (← L / R →) ── */
+.tv-insert-arrow {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 800;
+  pointer-events: none; user-select: none;
+}
+.tv-insert-arrow-l { fill: rgba(0,229,255,0.9); }
+.tv-insert-arrow-r { fill: rgba(255,149,0,0.9);  }
