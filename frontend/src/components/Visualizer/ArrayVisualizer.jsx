@@ -91,11 +91,6 @@ export default function ArrayVisualizer({ stepData }) {
           })}
         </div>
 
-        {/* Elimination shades */}
-        {lp!==null&&rp!==null&&(<>
-          {lp>0&&<div className="av-elim-bar left" style={{width:lp*(CW+GAP)-GAP/2,left:0}}/>}
-          {rp<values.length-1&&<div className="av-elim-bar right" style={{width:(values.length-1-rp)*(CW+GAP)-GAP/2,right:0}}/>}
-        </>)}
       </div>
     </div>
   );

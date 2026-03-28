@@ -69,7 +69,11 @@
   box-shadow:0 0 24px var(--accent-glow), inset 0 0 8px var(--accent-dim);
 }
 .av-cell.st-eliminated {
-  border-color:var(--border-2); background:var(--bg-base); opacity:0.28;
+  border-color:var(--border-2);
+  background:var(--bg-base);
+  opacity:0.32;
+  filter:saturate(0);
+  pointer-events:none;
 }
 
 .av-cell-val {
@@ -85,10 +89,3 @@
   position:absolute; bottom:3px; right:4px; z-index:1;
 }
 
-.av-elim-bar {
-  position:absolute; top:46px; height:56px;
-  background:color-mix(in srgb, var(--bg-root) 70%, transparent);
-  pointer-events:none; z-index:3; border-radius:4px;
-}
-.av-elim-bar.left  { border-right:1px solid rgba(239,68,68,0.15); }
-.av-elim-bar.right { border-left:1px solid rgba(239,68,68,0.15); }
