@@ -81,10 +81,12 @@ function collectNullLeaves(node, arr = []) {
   return arr;
 }
 
-/* Smooth cubic bezier between two nodes */
+/* Clean elbow path: straight down from parent, diagonal to child, straight into child */
 function edgePath(px, py, cx, cy) {
-  const midY = (py + cy) / 2;
-  return `M ${px},${py + NODE_R} C ${px},${midY} ${cx},${midY} ${cx},${cy - NODE_R}`;
+  const sy = py + NODE_R;       // start: bottom edge of parent circle
+  const ey = cy - NODE_R;       // end:   top edge of child circle
+  const stub = Math.min(14, (ey - sy) * 0.22); // short vertical stub length
+  return `M ${px},${sy} L ${px},${sy + stub} L ${cx},${ey - stub} L ${cx},${ey}`;
 }
 
 /* ════════════════════════════════════════════════
