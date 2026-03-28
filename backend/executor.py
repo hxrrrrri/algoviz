@@ -15,15 +15,46 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*unbound lo
 
 
 BLOCKED_BUILTINS = {
-    'open', 'exec', '__import__', 'compile', 'breakpoint',
+    'open', 'exec', 'compile', 'breakpoint',
     'input',  # handled separately via mock
+    # __import__ is replaced with safe_import below
 }
 
 BLOCKED_MODULES = {
     'os', 'sys', 'subprocess', 'socket', 'shutil', 'pathlib',
     'importlib', 'ctypes', 'multiprocessing', 'threading',
     'requests', 'urllib', 'http', 'ftplib', 'smtplib',
+    'pickle', 'shelve', 'marshal', 'pty', 'signal',
 }
+
+# Modules explicitly allowed (common algorithm / DS / typing modules)
+ALLOWED_MODULES = {
+    'typing', 'typing_extensions',
+    'collections', 'collections.abc',
+    'functools', 'itertools', 'operator',
+    'math', 'cmath', 'decimal', 'fractions', 'random', 'statistics', 'numbers',
+    'heapq', 'bisect', 'array', 'queue',
+    'string', 're', 'copy', 'pprint',
+    'enum', 'dataclasses', 'abc',
+    'io', 'json',
+    'sortedcontainers',
+}
+
+
+def _make_safe_import():
+    """Return a restricted __import__ that blocks dangerous modules."""
+    _real_import = builtins.__import__
+
+    def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+        base = name.split('.')[0] if name else ''
+        if base in BLOCKED_MODULES:
+            raise ImportError(f"Import of '{base}' is not allowed for security reasons.")
+        # Allow anything in our explicit allow-list or the standard library
+        try:
+            return _real_import(name, globals, locals, fromlist, level)
+        except ImportError:
+            raise
+    return safe_import
 
 
 def safe_builtins():
@@ -32,8 +63,8 @@ def safe_builtins():
         if name not in BLOCKED_BUILTINS:
             safe[name] = getattr(builtins, name)
     safe['__builtins__'] = safe
-    # Mock input
     safe['input'] = lambda prompt='': ''
+    safe['__import__'] = _make_safe_import()
     return safe
 
 

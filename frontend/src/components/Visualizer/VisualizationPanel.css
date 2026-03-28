@@ -173,6 +173,23 @@
 
 .pv-body { padding: 12px 14px 14px; overflow: auto; max-height: 360px; }
 
+/* ── Pinned card shine ── */
+.pv-shine {
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+  pointer-events: none; z-index: 1;
+}
+.pv { position: relative; }
+
+/* Changed badge */
+.pv-changed-badge {
+  font-size: 8px; font-weight: 700; letter-spacing: 0.06em;
+  color: #000; background: var(--accent);
+  border-radius: 8px; padding: 1px 6px;
+  box-shadow: 0 0 8px var(--accent-glow);
+  display: inline-block;
+}
+
 /* Matrix table */
 .pv-matrix-wrap { overflow: auto; }
 .pv-matrix {
@@ -182,6 +199,7 @@
 .pv-matrix th, .pv-matrix td {
   border: 1px solid var(--border-2); padding: 5px 10px;
   text-align: center; min-width: 38px; white-space: nowrap;
+  position: relative;
 }
 .pv-rc-label { background: transparent; border: none !important; }
 .pv-col-label {
@@ -194,20 +212,45 @@
 }
 .pv-cell {
   color: var(--accent-5); background: var(--bg-base);
-  transition: background 0.15s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .pv-cell:hover { background: var(--bg-card-hv); }
 .pv-cell-scalar { color: var(--text-2); }
 .pv-null { color: var(--text-4); }
 
-/* 1D list */
-.pv-list-wrap {
-  display: flex; flex-wrap: wrap; gap: 6px;
+/* Changed cell — green glow highlight */
+.pv-cell-changed {
+  background: rgba(52,211,153,0.12) !important;
+  border-color: rgba(52,211,153,0.55) !important;
+  color: var(--accent) !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 0 10px rgba(52,211,153,0.15), 0 0 0 1px rgba(52,211,153,0.3);
+  animation: cell-pop 0.5s ease-out;
 }
+.pv-cell-glow {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, rgba(52,211,153,0.25) 0%, transparent 70%);
+  pointer-events: none; border-radius: 2px;
+  animation: glow-fade 1.2s ease-out forwards;
+}
+
+@keyframes cell-pop {
+  0%   { transform: scale(1.08); }
+  60%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+@keyframes glow-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 1D list */
+.pv-list-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
 .pv-list-item {
   display: flex; flex-direction: column; align-items: center;
   background: var(--bg-base); border: 1px solid var(--border-2);
   border-radius: var(--radius-sm); overflow: hidden; min-width: 36px;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 .pv-list-idx {
   font-family: var(--font-mono); font-size: 8px; color: var(--text-3);
@@ -219,6 +262,16 @@
   padding: 5px 8px; font-weight: 600;
 }
 
+/* Changed item (list/dict) */
+.pv-item-changed {
+  background: rgba(52,211,153,0.10) !important;
+  border-color: rgba(52,211,153,0.50) !important;
+  box-shadow: 0 0 10px rgba(52,211,153,0.20);
+  animation: cell-pop 0.5s ease-out;
+}
+.pv-item-changed .pv-list-val,
+.pv-item-changed .pv-dict-val { color: var(--accent) !important; font-weight: 700; }
+
 /* Dict */
 .pv-dict-wrap { display: flex; flex-direction: column; gap: 3px; }
 .pv-dict-row {
@@ -226,6 +279,7 @@
   padding: 4px 8px; border-radius: var(--radius-sm);
   background: var(--bg-base); border: 1px solid var(--border-2);
   font-family: var(--font-mono); font-size: 11px;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 .pv-dict-key { color: var(--accent-2); font-weight: 600; flex-shrink: 0; }
 .pv-dict-sep { color: var(--text-3); }

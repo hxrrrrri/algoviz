@@ -170,12 +170,12 @@
 :root {
   --font-display: 'Outfit', sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
-  --header-h:  52px;
+  --header-h:   52px;
   --controls-h: 60px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
 }
 
 html, body, #root { height:100%; width:100%; overflow:hidden; }

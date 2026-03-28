@@ -1,3 +1,4 @@
+/* ══ Root ══ */
 .app-root {
   display: flex; flex-direction: column;
   height: 100vh; width: 100vw; overflow: hidden;
@@ -6,54 +7,131 @@
   transition: background 0.35s;
 }
 
-/* Ambient orbs — glass theme only */
+/* ── Ambient light orbs (glass theme only) ── */
 .ambient-orb {
   position: fixed; border-radius: 50%;
   pointer-events: none; z-index: 0;
-  transition: opacity 0.4s;
+  transition: opacity 0.5s;
 }
 [data-theme="glass"] .ambient-orb { opacity: 1; }
 [data-theme="noir"]  .ambient-orb { opacity: 0; }
 
 .orb-1 {
-  width: 800px; height: 800px; top: -260px; left: -180px;
-  background: radial-gradient(circle, rgba(52,211,153,0.07) 0%, rgba(52,211,153,0.015) 45%, transparent 70%);
+  width: 900px; height: 900px; top: -300px; left: -200px;
+  background: radial-gradient(circle, rgba(52,211,153,0.075) 0%, rgba(52,211,153,0.015) 45%, transparent 70%);
 }
 .orb-2 {
-  width: 1000px; height: 1000px; bottom: -350px; right: -250px;
-  background: radial-gradient(circle, rgba(129,140,248,0.07) 0%, rgba(129,140,248,0.015) 45%, transparent 70%);
+  width: 1100px; height: 1100px; bottom: -400px; right: -280px;
+  background: radial-gradient(circle, rgba(129,140,248,0.075) 0%, rgba(129,140,248,0.015) 45%, transparent 70%);
 }
 .orb-3 {
-  width: 600px; height: 600px; top: 28%; left: 32%;
-  background: radial-gradient(circle, rgba(251,191,36,0.035) 0%, transparent 60%);
+  width: 650px; height: 650px; top: 25%; left: 30%;
+  background: radial-gradient(circle, rgba(251,191,36,0.04) 0%, transparent 60%);
 }
 
+/* ══ Main body layout ══ */
 .app-body {
   display: flex; flex: 1; overflow: hidden; min-height: 0;
   position: relative; z-index: 1;
+  padding: 8px; gap: 8px;
 }
 
+/* ── Shared glass card style ── */
+.glass-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-1);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+[data-theme="glass"] .glass-card {
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.09);
+}
+[data-theme="noir"] .glass-card {
+  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px var(--border-1), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* ── Editor panel ── */
 .panel-editor {
   width: 44%; min-width: 320px; max-width: 65%;
-  display: flex; flex-direction: column; overflow: hidden;
+  display: flex; flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-1);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
-.panel-divider {
-  width: 1px; flex-shrink: 0;
-  background: var(--border-1);
+[data-theme="glass"] .panel-editor {
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.09);
 }
+[data-theme="noir"] .panel-editor {
+  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px var(--border-1), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Hide old solid divider line */
+.panel-divider { display: none; }
+.panel-vars-divider { display: none; }
+
+/* ── Right column ── */
 .panel-right {
-  flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0; gap: 8px;
 }
+
+/* ── Top row: viz + vars ── */
 .panel-right-top {
-  flex: 1; display: flex; overflow: hidden; min-height: 0;
+  flex: 1; display: flex; overflow: hidden; min-height: 0; gap: 8px;
 }
+
+/* ── Visualization panel ── */
 .panel-viz {
   flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-1);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
-.panel-vars-divider {
-  width: 1px; flex-shrink: 0; background: var(--border-1);
+[data-theme="glass"] .panel-viz {
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.09);
 }
+[data-theme="noir"] .panel-viz {
+  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px var(--border-1), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* ── Variables panel ── */
 .panel-vars {
   width: 290px; min-width: 220px; flex-shrink: 0;
   overflow: hidden; display: flex; flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-1);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+[data-theme="glass"] .panel-vars {
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.09);
+}
+[data-theme="noir"] .panel-vars {
+  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px var(--border-1), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* ── Controls bar ── acts as its own glass card ── */
+.panel-right > .ctrl {
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--border-1) !important;
+  border-top: 1px solid var(--border-1) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+[data-theme="glass"] .panel-right > .ctrl {
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.09) !important;
+}
+[data-theme="noir"] .panel-right > .ctrl {
+  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 1px var(--border-1), inset 0 1px 0 rgba(255,255,255,0.04) !important;
 }
