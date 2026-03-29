@@ -431,33 +431,23 @@ def _is_heavy_ml(code: str) -> bool:
 
 def _cap_ml_dataset(code: str) -> str:
     """
-    For visualization purposes, automatically cap large ML datasets
-    to 2000 training samples and 500 test samples so training finishes
-    in a reasonable time. Injects slice assignments right after the
-    data-load call that produces X_train / X_test.
+    For visualization: cap large datasets to 2000/500 samples so
+    training finishes in a reasonable time. Epochs are not modified.
     """
     import re
 
-    # Only apply if there's a .fit() call training on a large dataset
-    if not re.search(r'\.fit\s*\(', code):
-        return code
-
-    # Insert dataset cap lines after the last reshape / normalisation block
-    # but before model.compile / model.fit.
-    # Strategy: inject a sentinel comment + slice right before model.fit(
-    cap_snippet = (
-        "\n# [AlgoViz] cap dataset for fast visualization\n"
-        "if 'X_train' in dir() and hasattr(X_train, '__len__') and len(X_train) > 2000:\n"
-        "    X_train, y_train = X_train[:2000], y_train[:2000]\n"
-        "if 'X_test' in dir() and hasattr(X_test, '__len__') and len(X_test) > 500:\n"
-        "    X_test, y_test = X_test[:500], y_test[:500]\n"
-    )
-
-    # Inject just before the first model.fit( call
-    fit_match = re.search(r'^(.*model\.fit\s*\()', code, re.MULTILINE)
-    if fit_match:
-        insert_pos = fit_match.start()
-        code = code[:insert_pos] + cap_snippet + code[insert_pos:]
+    # ── Cap dataset size ──────────────────────────────────────────
+    if re.search(r'\.fit\s*\(', code):
+        cap_snippet = (
+            "\n# [AlgoViz] cap dataset for fast visualization\n"
+            "if 'X_train' in dir() and hasattr(X_train, '__len__') and len(X_train) > 2000:\n"
+            "    X_train, y_train = X_train[:2000], y_train[:2000]\n"
+            "if 'X_test' in dir() and hasattr(X_test, '__len__') and len(X_test) > 500:\n"
+            "    X_test, y_test = X_test[:500], y_test[:500]\n"
+        )
+        fit_match = re.search(r'^(.*model\.fit\s*\()', code, re.MULTILINE)
+        if fit_match:
+            code = code[:fit_match.start()] + cap_snippet + code[fit_match.start():]
 
     return code
 

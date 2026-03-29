@@ -10,6 +10,14 @@
 }
 .mv-dims  { font-family:var(--font-mono); font-size:9px; color:var(--text-3);
   background:var(--bg-card); border:1px solid var(--border-2); border-radius:4px; padding:1px 6px; }
+.mv-ptrs-inline { display:flex; gap:6px; }
+.mv-collapse-btn {
+  margin-left:auto; background:none; border:1px solid var(--border-2);
+  border-radius:var(--radius-sm); padding:2px 9px;
+  font-size:9px; font-weight:600; color:var(--text-3); cursor:pointer;
+  transition:all 0.14s; letter-spacing:0.03em;
+}
+.mv-collapse-btn:hover { color:var(--accent-2); border-color:var(--accent-2); background:rgba(124,132,240,0.08); }
 
 /* Scroll wrapper */
 .mv-scroll{ overflow:auto; padding-bottom:4px; }

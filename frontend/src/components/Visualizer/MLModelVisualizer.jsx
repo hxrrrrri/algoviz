@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { flattenValue } from '../../utils/vizMapper';
 import './MLModelVisualizer.css';
@@ -87,19 +87,31 @@ function ActivationBadge({ name }) {
 }
 
 /* ── Single layer card ── */
-function LayerCard({ layer, idx }) {
+function LayerCard({ layer, idx, isActive }) {
   const { cls, name, units, activation, rate, kernelSize, paramCount, outShape, cfg } = layer;
   const shortCls = cls.replace(/layer/i, '').replace(/2d|1d/i, m => m.toUpperCase()) || cls;
 
   return (
     <motion.div
-      className="mlm-layer-card"
+      className={`mlm-layer-card ${isActive ? 'mlm-layer-active' : ''}`}
       style={{ '--lc': cfg.color }}
       initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
       transition={{ delay: idx * 0.07, type: 'spring', stiffness: 340, damping: 28 }}
     >
       {/* Left color bar */}
       <div className="mlm-layer-bar" />
+
+      {/* Active signal dot */}
+      <AnimatePresence>
+        {isActive && (
+          <motion.div className="mlm-layer-signal"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: [1, 1.5, 1], opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ duration: 0.4, repeat: Infinity, repeatDelay: 0.6 }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Icon */}
       <div className="mlm-layer-icon">{cfg.icon}</div>
@@ -112,6 +124,7 @@ function LayerCard({ layer, idx }) {
           {rate != null && <span className="mlm-layer-units">{(rate * 100).toFixed(0)}% drop</span>}
           {kernelSize != null && <span className="mlm-layer-units">k={JSON.stringify(kernelSize)}</span>}
           <ActivationBadge name={activation} />
+          {isActive && <span className="mlm-layer-active-tag">● processing</span>}
         </div>
         <div className="mlm-layer-bot">
           <span className="mlm-layer-name">{name}</span>
@@ -137,11 +150,32 @@ function LayerCard({ layer, idx }) {
 }
 
 /* ── NN card ── */
-function NNCard({ name, repr }) {
+function NNCard({ name, repr, currentStep, traceLength, isExecuting }) {
   const cls          = repr?.class ?? '?';
   const layers       = extractLayers(repr);
   const totalParams  = repr?.total_params ?? null;
   const trainParams  = repr?.trainable_params ?? null;
+
+  // Which layer index is "active" right now
+  const [cycleIdx, setCycleIdx] = useState(0);
+
+  // While executing: cycle through layers automatically
+  useEffect(() => {
+    if (!isExecuting || !layers?.length) return;
+    const id = setInterval(() => setCycleIdx(i => (i + 1) % layers.length), 600);
+    return () => clearInterval(id);
+  }, [isExecuting, layers?.length]);
+
+  // While stepping through trace: map step progress → layer index
+  const activeLayerIdx = useMemo(() => {
+    if (!layers?.length) return null;
+    if (isExecuting) return cycleIdx;
+    if (!traceLength) return null;
+    return Math.min(
+      Math.floor((currentStep / Math.max(traceLength - 1, 1)) * layers.length),
+      layers.length - 1
+    );
+  }, [isExecuting, cycleIdx, currentStep, traceLength, layers?.length]);
 
   // Fallback estimate if backend didn't provide count
   const paramInfo = useMemo(() => {
@@ -188,7 +222,9 @@ function NNCard({ name, repr }) {
       {layers && (
         <div className="mlm-nn-arch-key">
           {layers.map((l, i) => (
-            <span key={i} style={{ color: l.cfg.color }}
+            <span key={i}
+              style={{ color: l.cfg.color, filter: i === activeLayerIdx ? `drop-shadow(0 0 6px ${l.cfg.color})` : 'none' }}
+              className={i === activeLayerIdx ? 'mlm-arch-active-icon' : ''}
               title={`${l.cls}${l.units ? ` (${l.units})` : ''}`}>
               {l.cfg.icon}
               {i < layers.length - 1 && <span className="mlm-arch-arrow">→</span>}
@@ -208,12 +244,14 @@ function NNCard({ name, repr }) {
 
           {layers.map((layer, i) => (
             <div key={i} className="mlm-layer-step">
-              {/* Connector */}
+              {/* Connector — glow when data flows into active layer */}
               <div className="mlm-connector">
-                <div className="mlm-connector-line" style={{ background: layer.cfg.color + '80' }} />
-                <div className="mlm-connector-arrow" style={{ borderTopColor: layer.cfg.color + '80' }} />
+                <div className="mlm-connector-line"
+                  style={{ background: i === activeLayerIdx ? layer.cfg.color : layer.cfg.color + '50' }} />
+                <div className="mlm-connector-arrow"
+                  style={{ borderTopColor: i === activeLayerIdx ? layer.cfg.color : layer.cfg.color + '50' }} />
               </div>
-              <LayerCard layer={layer} idx={i} totalLayers={layers.length} />
+              <LayerCard layer={layer} idx={i} isActive={i === activeLayerIdx} />
             </div>
           ))}
 
@@ -358,7 +396,7 @@ export function getMLModels(locals, hints) {
 }
 
 /* ── Main ── */
-export default function MLModelVisualizer({ stepData }) {
+export default function MLModelVisualizer({ stepData, currentStep, traceLength, isExecuting }) {
   const { locals, structure_hints: hints } = stepData || {};
   const models = useMemo(() => getMLModels(locals, hints), [locals, hints]);
   if (!models.length) return null;
@@ -367,7 +405,8 @@ export default function MLModelVisualizer({ stepData }) {
     <div className="mlm">
       {models.map(({ name, repr, hint }) =>
         hint === 'nn_model' || isNNClass(repr?.class ?? '')
-          ? <NNCard    key={name} name={name} repr={repr} />
+          ? <NNCard key={name} name={name} repr={repr}
+              currentStep={currentStep} traceLength={traceLength} isExecuting={isExecuting} />
           : <SklearnCard key={name} name={name} repr={repr} />
       )}
     </div>

@@ -132,6 +132,24 @@
 .mlm-layer-name { font-family: var(--font-mono); font-size: 9px; color: var(--text-4); }
 .mlm-layer-desc { font-size: 9px; color: var(--text-3); }
 
+/* Active layer highlight */
+.mlm-layer-card.mlm-layer-active {
+  border-color: var(--lc) !important;
+  background: color-mix(in srgb, var(--lc) 8%, var(--bg-base));
+  box-shadow: 0 0 0 1px var(--lc), 0 0 18px color-mix(in srgb, var(--lc) 30%, transparent);
+}
+.mlm-layer-signal {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--lc); box-shadow: 0 0 8px var(--lc);
+}
+.mlm-layer-active-tag {
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--lc); animation: mlm-blink 1s ease infinite;
+}
+@keyframes mlm-blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.mlm-arch-active-icon { font-size: 18px; transition: filter 0.3s; }
+
 .mlm-layer-shape {
   font-family: var(--font-mono); font-size: 9px; color: var(--text-3);
   background: var(--bg-card); border: 1px solid var(--border-2);

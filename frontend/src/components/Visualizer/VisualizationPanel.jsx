@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect, Fragment } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../../store';
 import LiveVariablesPanel from '../panels/LiveVariablesPanel';
@@ -360,6 +360,24 @@ export default function VisualizationPanel() {
     >
       <div className="vp-grid" />
 
+      {/* Executing overlay */}
+      <AnimatePresence>
+        {isExecuting && (
+          <motion.div className="vp-exec-overlay"
+            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            transition={{ duration:0.2 }}>
+            <div className="vp-exec-ring">
+              <div className="vp-exec-inner">
+                <div className="vp-exec-spinner" />
+              </div>
+            </div>
+            <div className="vp-exec-title">Running…</div>
+            <div className="vp-exec-sub">Executing your code and building the trace</div>
+            <div className="vp-exec-hint">ML models may take up to a minute</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Drop overlay */}
       <AnimatePresence>
         {dragOver && (
@@ -626,7 +644,10 @@ export default function VisualizationPanel() {
               <AnimatePresence>
                 <motion.div key="mlm" className="vp-section"
                   initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <MLModelVisualizer stepData={dispStep} />
+                  <MLModelVisualizer stepData={dispStep}
+                    currentStep={currentStep}
+                    traceLength={trace.length}
+                    isExecuting={isExecuting} />
                 </motion.div>
               </AnimatePresence>
             )}
