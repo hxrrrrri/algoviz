@@ -50,7 +50,13 @@
 .lvp-vars {
   flex: 1; overflow-y: auto; padding: 6px 8px;
   display: flex; flex-direction: column; gap: 4px; min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-1) transparent;
 }
+.lvp-vars::-webkit-scrollbar { width: 4px; }
+.lvp-vars::-webkit-scrollbar-track { background: transparent; }
+.lvp-vars::-webkit-scrollbar-thumb { background: var(--border-1); border-radius: 4px; }
+.lvp-vars::-webkit-scrollbar-thumb:hover { background: var(--border-2); }
 .lvp-no-vars {
   color: var(--text-3); font-size: 11px; text-align: center; padding: 20px 0;
 }

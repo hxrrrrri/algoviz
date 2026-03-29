@@ -87,7 +87,7 @@ function ActivationBadge({ name }) {
 }
 
 /* ── Single layer card ── */
-function LayerCard({ layer, idx, isActive }) {
+function LayerCard({ layer, idx, isActive, isExecuting }) {
   const { cls, name, units, activation, rate, kernelSize, paramCount, outShape, cfg } = layer;
   const shortCls = cls.replace(/layer/i, '').replace(/2d|1d/i, m => m.toUpperCase()) || cls;
 
@@ -124,7 +124,8 @@ function LayerCard({ layer, idx, isActive }) {
           {rate != null && <span className="mlm-layer-units">{(rate * 100).toFixed(0)}% drop</span>}
           {kernelSize != null && <span className="mlm-layer-units">k={JSON.stringify(kernelSize)}</span>}
           <ActivationBadge name={activation} />
-          {isActive && <span className="mlm-layer-active-tag">● processing</span>}
+          {isActive && isExecuting && <span className="mlm-layer-active-tag">● processing</span>}
+          {isActive && !isExecuting && <span className="mlm-layer-active-tag mlm-layer-active-tag--step">◆ active</span>}
         </div>
         <div className="mlm-layer-bot">
           <span className="mlm-layer-name">{name}</span>
@@ -170,9 +171,12 @@ function NNCard({ name, repr, currentStep, traceLength, isExecuting }) {
   const activeLayerIdx = useMemo(() => {
     if (!layers?.length) return null;
     if (isExecuting) return cycleIdx;
-    if (!traceLength) return null;
+    if (!traceLength || traceLength <= 1) return null;
+    // Clamp to layers.length - 1, but return null at the very last step (done)
+    const progress = currentStep / (traceLength - 1);
+    if (progress >= 1) return null;
     return Math.min(
-      Math.floor((currentStep / Math.max(traceLength - 1, 1)) * layers.length),
+      Math.floor(progress * layers.length),
       layers.length - 1
     );
   }, [isExecuting, cycleIdx, currentStep, traceLength, layers?.length]);
@@ -251,7 +255,7 @@ function NNCard({ name, repr, currentStep, traceLength, isExecuting }) {
                 <div className="mlm-connector-arrow"
                   style={{ borderTopColor: i === activeLayerIdx ? layer.cfg.color : layer.cfg.color + '50' }} />
               </div>
-              <LayerCard layer={layer} idx={i} isActive={i === activeLayerIdx} />
+              <LayerCard layer={layer} idx={i} isActive={i === activeLayerIdx} isExecuting={isExecuting} />
             </div>
           ))}
 
