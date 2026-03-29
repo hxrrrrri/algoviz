@@ -413,6 +413,55 @@ def _is_ml_code(code: str) -> bool:
     return False
 
 
+def _is_heavy_ml(code: str) -> bool:
+    """Detect CNN / LSTM / large model training that needs extra time."""
+    import re
+    patterns = [
+        r'\bConv2D\b', r'\bConv1D\b', r'\bLSTM\b', r'\bGRU\b',
+        r'\bTransformer\b', r'\bBERT\b', r'\bResNet\b',
+        r'epochs\s*=\s*[5-9]\d*',   # epochs >= 5
+        r'epochs\s*=\s*\d{2,}',     # epochs >= 10
+        r'\.fit\(.*X_train',         # training on full dataset
+    ]
+    for p in patterns:
+        if re.search(p, code):
+            return True
+    return False
+
+
+def _cap_ml_dataset(code: str) -> str:
+    """
+    For visualization purposes, automatically cap large ML datasets
+    to 2000 training samples and 500 test samples so training finishes
+    in a reasonable time. Injects slice assignments right after the
+    data-load call that produces X_train / X_test.
+    """
+    import re
+
+    # Only apply if there's a .fit() call training on a large dataset
+    if not re.search(r'\.fit\s*\(', code):
+        return code
+
+    # Insert dataset cap lines after the last reshape / normalisation block
+    # but before model.compile / model.fit.
+    # Strategy: inject a sentinel comment + slice right before model.fit(
+    cap_snippet = (
+        "\n# [AlgoViz] cap dataset for fast visualization\n"
+        "if 'X_train' in dir() and hasattr(X_train, '__len__') and len(X_train) > 2000:\n"
+        "    X_train, y_train = X_train[:2000], y_train[:2000]\n"
+        "if 'X_test' in dir() and hasattr(X_test, '__len__') and len(X_test) > 500:\n"
+        "    X_test, y_test = X_test[:500], y_test[:500]\n"
+    )
+
+    # Inject just before the first model.fit( call
+    fit_match = re.search(r'^(.*model\.fit\s*\()', code, re.MULTILINE)
+    if fit_match:
+        insert_pos = fit_match.start()
+        code = code[:insert_pos] + cap_snippet + code[insert_pos:]
+
+    return code
+
+
 class PythonExecutor:
     def __init__(self, max_steps: int = 5000, timeout: float = 8.0):
         self.max_steps = max_steps
@@ -431,11 +480,14 @@ class PythonExecutor:
         self._error = None
         self._stdout_buffer = []
 
-        # Auto-raise limits for ML/scientific code — it has many more internal steps
-        # and legitimately takes longer to run.
+        # Auto-raise limits for ML/scientific code
         if _is_ml_code(code):
             self.max_steps = max(self.max_steps, 50_000)
-            self.timeout   = max(self.timeout,   60.0)
+            self.timeout   = max(self.timeout,   120.0)   # 2 min baseline for ML
+            if _is_heavy_ml(code):
+                self.timeout = max(self.timeout, 240.0)   # 4 min for CNN/LSTM/large models
+            # Cap large datasets so training finishes in visualization time
+            code = _cap_ml_dataset(code)
 
         try:
             code = sanitize_code(code)
