@@ -15,6 +15,12 @@ import contextlib
 # Suppress CPython-internal RuntimeWarning about unbound locals in comprehensions
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*unbound local.*")
 
+# Suppress NumPy 2.4 dtype/align deprecation warning triggered by Keras CIFAR pickle loader
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*align.*")
+warnings.filterwarnings("ignore", message=".*VisibleDeprecationWarning.*")
+
 # Suppress TensorFlow / absl noisy startup logs
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")

@@ -681,9 +681,9 @@ export default function VisualizationPanel() {
               if (dispStrings.length > 0) push('str', 'Strings', 1,
                 <div>{dispStrings.map(s => <StringBar key={s.name} name={s.name} value={s.value} />)}</div>);
               if (dispHasArray)  push('arr',  'Array',          1, <ArrayVisualizer stepData={dispStep} />, arrW);
-              if (dispHasArray && hasRecursion) push('rtv', 'Recursion Tree', 1,
+              if (hasRecursion) push('rtv', 'Recursion Tree', 1,
                 <VizErrorBoundary><RecursionTreeVisualizer trace={trace} currentStep={currentStep} /></VizErrorBoundary>,
-                Math.max(520, arrW));
+                Math.max(520, dispHasArray ? arrW : 480));
               if (dispHasMatrix) push('mat',  'Matrix',         2, <MatrixVisualizer stepData={dispStep} />);
               if (dispTreeData)  push('tree', 'Tree',           2, <TreeVisualizer name={dispTreeData.name} repr={dispTreeData.repr} prevRepr={prevTreeData?.repr||null} />);
               if (dispHasLL)     push('ll',   'Linked List',    1, <LinkedListVisualizer stepData={dispStep} />);
@@ -722,8 +722,8 @@ export default function VisualizationPanel() {
                 {hasTrace && dispHasArray && (
                   <AnimatePresence><motion.div key="arr" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><ArrayVisualizer stepData={dispStep} /></motion.div></AnimatePresence>
                 )}
-                {/* Recursion tree — only when recursion/DP detected, no AnimatePresence to prevent blinking */}
-                {hasTrace && dispHasArray && hasRecursion && (
+                {/* Recursion tree — any recursive code, not just array problems */}
+                {hasTrace && hasRecursion && (
                   <div className="vp-section">
                     <VizErrorBoundary>
                       <RecursionTreeVisualizer trace={trace} currentStep={currentStep} />
