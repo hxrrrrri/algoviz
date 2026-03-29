@@ -182,8 +182,8 @@ def safe_repr(obj, depth=0, max_depth=4):
                 'ZeroPadding2D', 'ZeroPadding1D', 'ZeroPadding3D',
                 'Cropping1D', 'Cropping2D', 'Cropping3D',
                 'Reshape', 'Flatten',
-                'Add', 'Multiply', 'Subtract', 'Average', 'Maximum', 'Minimum',
-                'Concatenate', 'Dot',
+                'Multiply', 'Subtract', 'Average', 'Maximum', 'Minimum',
+                'Dot',
             }
             layers_data = []
             for layer in obj.layers:
@@ -196,7 +196,7 @@ def safe_repr(obj, depth=0, max_depth=4):
                     try:
                         if layer.count_params() == 0 and layer_cls in (
                             'ReLU', 'LeakyReLU', 'ELU', 'ThresholdedReLU', 'PReLU',
-                            'Softmax', 'Activation', 'GlobalAveragePooling2D',
+                            'Softmax', 'Activation',
                             'GlobalMaxPooling2D', 'GlobalAveragePooling1D',
                         ):
                             continue
@@ -242,6 +242,19 @@ def safe_repr(obj, depth=0, max_depth=4):
                     for l in layers_data
                 ]}}
             }
+            # Include fit() metrics even when user didn't assign `history = model.fit(...)`.
+            try:
+                hist_obj = getattr(obj, 'history', None)
+                hist_dict = getattr(hist_obj, 'history', None) if hist_obj is not None else None
+                if isinstance(hist_dict, dict) and hist_dict:
+                    serialised_hist = {}
+                    for hk, hv in hist_dict.items():
+                        if isinstance(hv, (list, tuple)):
+                            serialised_hist[hk] = [float(x) for x in list(hv)[:200]]
+                    if serialised_hist:
+                        result["history"] = serialised_hist
+            except Exception:
+                pass
             # Total params
             try:
                 result["total_params"]     = obj.count_params()

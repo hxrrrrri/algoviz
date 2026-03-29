@@ -3,6 +3,29 @@ import { persist } from 'zustand/middleware';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+const ML_HINTS = new Set(['training_history', 'nn_model', 'ml_model']);
+
+function isMLStep(step) {
+  if (!step) return false;
+  const locals = step.locals || {};
+  const hints = step.structure_hints || {};
+
+  for (const [name, hint] of Object.entries(hints)) {
+    if (ML_HINTS.has(hint) && locals[name]) return true;
+  }
+
+  for (const repr of Object.values(locals)) {
+    if (!repr || repr.type !== 'object') continue;
+    const cls = String(repr.class || '').toLowerCase();
+    const mlMod = String(repr.ml_module || '').toLowerCase();
+    if (/keras|tensorflow|torch|sklearn|xgboost|lightgbm/.test(mlMod)) return true;
+    if (/sequential|functional|model|network|conv|lstm|gru|transformer|resnet|residual/.test(cls)) return true;
+    if (repr.history && typeof repr.history === 'object') return true;
+  }
+
+  return false;
+}
+
 const DEFAULT_CODE = `def binary_search(arr, target):
     left, right = 0, len(arr) - 1
     while left <= right:
@@ -78,7 +101,9 @@ const useStore = create(
           if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Execution failed'); }
           const data = await res.json();
           const trace = data.trace || [];
-          set({ trace, currentStep:0, isExecuting:false, highlightedLine: trace[0]?.line ?? null });
+          const firstMLStep = trace.findIndex(isMLStep);
+          const startStep = firstMLStep >= 0 ? firstMLStep : 0;
+          set({ trace, currentStep:startStep, isExecuting:false, highlightedLine: trace[startStep]?.line ?? null });
           setTimeout(() => set({ isPlaying: true }), 300);
         } catch (err) {
           set({ isExecuting:false, executionError: err.message, trace:[] });

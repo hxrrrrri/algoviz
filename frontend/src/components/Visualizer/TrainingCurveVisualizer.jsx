@@ -49,9 +49,32 @@ function fmtVal(v) {
 }
 function pct(v) { return v != null ? `${(v * 100).toFixed(1)}%` : '—'; }
 
+function normaliseHistoryObject(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!Array.isArray(v)) continue;
+    const vals = v
+      .map(x => (typeof x === 'number' ? x : parseFloat(x)))
+      .filter(n => Number.isFinite(n));
+    if (vals.length > 0) out[k] = vals;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /* ── Extract history from repr ── */
 function extractHistory(repr) {
   if (!repr) return null;
+  // Backend may attach compact history directly on serialized model objects.
+  if (repr.type === 'object' && repr.history && typeof repr.history === 'object') {
+    const parsed = normaliseHistoryObject(repr.history);
+    if (parsed) return parsed;
+  }
+  // Also support object attrs.history stored in safe_repr-style dict/list format.
+  if (repr.type === 'object' && repr.attrs?.history) {
+    const nested = extractHistory(repr.attrs.history);
+    if (nested) return nested;
+  }
   if (repr.type === 'keras_history') return repr.history;
   if (repr.type === 'dict' && repr.value) {
     const ML_KEYS = new Set(['loss','val_loss','accuracy','val_accuracy','acc','val_acc',
@@ -70,13 +93,27 @@ function extractHistory(repr) {
 }
 
 export function getTrainingHistory(locals, hints) {
-  if (!locals || !hints) return null;
-  for (const [name, hint] of Object.entries(hints)) {
-    if (hint === 'training_history' && locals[name]) {
-      const hist = extractHistory(locals[name]);
-      if (hist) return { name, history: hist };
+  if (!locals) return null;
+  const seen = new Set();
+
+  // Preferred path: backend-provided hints.
+  if (hints) {
+    for (const [name, hint] of Object.entries(hints)) {
+      if (hint === 'training_history' && locals[name]) {
+        const hist = extractHistory(locals[name]);
+        if (hist) return { name, history: hist };
+        seen.add(name);
+      }
     }
   }
+
+  // Fallback path: infer from locals so fit-history still shows without explicit hints.
+  for (const [name, repr] of Object.entries(locals)) {
+    if (seen.has(name)) continue;
+    const hist = extractHistory(repr);
+    if (hist) return { name, history: hist };
+  }
+
   return null;
 }
 

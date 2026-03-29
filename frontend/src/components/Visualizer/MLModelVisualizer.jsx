@@ -13,7 +13,7 @@ function displayVal(repr) {
 }
 
 function isNNClass(cls) {
-  return /sequential|functional|model|dense|conv|lstm|gru|transformer/i.test(cls);
+  return /sequential|functional|model|dense|conv|lstm|gru|transformer|resnet|residual/i.test(cls);
 }
 
 /* ── Layer config ── */
@@ -21,10 +21,12 @@ const LAYER_CFG = {
   dense:      { color: '#7c84f0', icon: '⬡', desc: 'Fully Connected' },
   conv2d:     { color: '#f59e0b', icon: '⊞', desc: 'Convolution 2D' },
   conv1d:     { color: '#fbbf24', icon: '⊟', desc: 'Convolution 1D' },
+  add:        { color: '#22c55e', icon: '⊕', desc: 'Residual Skip Merge' },
   lstm:       { color: '#34d399', icon: '↻', desc: 'Long Short-Term Memory' },
   gru:        { color: '#60a5fa', icon: '↺', desc: 'Gated Recurrent Unit' },
   dropout:    { color: '#f87171', icon: '%', desc: 'Regularization' },
   batchnorm:  { color: '#a78bfa', icon: '≈', desc: 'Batch Normalization' },
+  globalavg:  { color: '#14b8a6', icon: '◎', desc: 'Global Average Pooling' },
   flatten:    { color: '#94a3b8', icon: '⟄', desc: 'Flatten to 1D' },
   embedding:  { color: '#fb923c', icon: '↦', desc: 'Embedding Layer' },
   maxpool:    { color: '#22d3ee', icon: '↓', desc: 'Max Pooling' },
@@ -35,10 +37,49 @@ const LAYER_CFG = {
 
 function layerCfg(cls) {
   const lc = cls?.toLowerCase() ?? '';
-  for (const [k, v] of Object.entries(LAYER_CFG)) {
-    if (k !== 'default' && lc.includes(k)) return { ...v, key: k };
+  if (lc.includes('conv2d')) return { ...LAYER_CFG.conv2d, key: 'conv2d' };
+  if (lc.includes('conv1d')) return { ...LAYER_CFG.conv1d, key: 'conv1d' };
+  if (lc === 'add' || lc.endsWith('add')) return { ...LAYER_CFG.add, key: 'add' };
+  if (lc.includes('batchnormalization') || lc.includes('batchnorm')) {
+    return { ...LAYER_CFG.batchnorm, key: 'batchnorm' };
   }
+  if (lc.includes('globalaveragepooling')) return { ...LAYER_CFG.globalavg, key: 'globalavg' };
+  if (lc.includes('maxpool')) return { ...LAYER_CFG.maxpool, key: 'maxpool' };
+  if (lc.includes('avgpool') || lc.includes('averagepooling')) return { ...LAYER_CFG.avgpool, key: 'avgpool' };
+  if (lc.includes('dense')) return { ...LAYER_CFG.dense, key: 'dense' };
+  if (lc.includes('lstm')) return { ...LAYER_CFG.lstm, key: 'lstm' };
+  if (lc.includes('gru')) return { ...LAYER_CFG.gru, key: 'gru' };
+  if (lc.includes('dropout')) return { ...LAYER_CFG.dropout, key: 'dropout' };
+  if (lc.includes('flatten')) return { ...LAYER_CFG.flatten, key: 'flatten' };
+  if (lc.includes('embedding')) return { ...LAYER_CFG.embedding, key: 'embedding' };
+  if (lc.includes('attention')) return { ...LAYER_CFG.attention, key: 'attention' };
   return { ...LAYER_CFG.default, key: 'default' };
+}
+
+function inferNNFamily(cls, layers) {
+  const lc = (cls || '').toLowerCase();
+  const names = (layers || []).map(l => (l.cls || '').toLowerCase());
+  const hasConv = names.some(n => n.includes('conv'));
+  const hasAdd = names.some(n => n === 'add' || n.endsWith('add'));
+  const hasRnn = names.some(n => n.includes('lstm') || n.includes('gru'));
+  const hasAttn = names.some(n => n.includes('attention') || n.includes('transformer'));
+
+  if (hasConv && hasAdd) return 'ResNet-style';
+  if (hasAttn || lc.includes('transformer')) return 'Transformer';
+  if (hasRnn || lc.includes('lstm') || lc.includes('gru')) return 'Sequence Model';
+  if (hasConv || lc.includes('cnn')) return 'CNN';
+  return 'Neural Network';
+}
+
+function looksLikeMLModel(repr) {
+  if (!repr || repr.type !== 'object') return false;
+  const mlModule = String(repr.ml_module || '').toLowerCase();
+  const cls = String(repr.class || '').toLowerCase();
+  if (/keras|tensorflow|torch|sklearn|xgboost|lightgbm/.test(mlModule)) return true;
+  if (isNNClass(cls)) return true;
+  if (repr.params && typeof repr.params === 'object') return true;
+  if (repr.attrs?.layers?.type === 'list') return true;
+  return false;
 }
 
 /* ── Extract layers from Keras repr ── */
@@ -156,6 +197,7 @@ function NNCard({ name, repr, currentStep, traceLength, isExecuting }) {
   const layers       = extractLayers(repr);
   const totalParams  = repr?.total_params ?? null;
   const trainParams  = repr?.trainable_params ?? null;
+  const nnFamily     = useMemo(() => inferNNFamily(cls, layers), [cls, layers]);
 
   // Which layer index is "active" right now
   const [cycleIdx, setCycleIdx] = useState(0);
@@ -207,7 +249,7 @@ function NNCard({ name, repr, currentStep, traceLength, isExecuting }) {
           <div className="mlm-nn-dot" />
           <span className="mlm-nn-cls">{cls}</span>
           <span className="mlm-nn-varname">{name}</span>
-          <span className="mlm-nn-badge">Neural Network</span>
+          <span className="mlm-nn-badge">{nnFamily}</span>
         </div>
         <div className="mlm-nn-header-r">
           {layers && <span className="mlm-nn-stat">{layers.length} layers</span>}
@@ -389,13 +431,30 @@ function SklearnCard({ name, repr }) {
 
 /* ── Extract all ML models ── */
 export function getMLModels(locals, hints) {
-  if (!locals || !hints) return [];
+  if (!locals) return [];
   const result = [];
-  for (const [name, hint] of Object.entries(hints)) {
-    if ((hint === 'ml_model' || hint === 'nn_model') && locals[name]) {
-      result.push({ name, repr: locals[name], hint });
+  const seen = new Set();
+
+  // Preferred path: backend-provided hints.
+  if (hints) {
+    for (const [name, hint] of Object.entries(hints)) {
+      if ((hint === 'ml_model' || hint === 'nn_model') && locals[name]) {
+        result.push({ name, repr: locals[name], hint });
+        seen.add(name);
+      }
     }
   }
+
+  // Fallback path: infer from locals to handle hint misses.
+  for (const [name, repr] of Object.entries(locals)) {
+    if (seen.has(name) || !looksLikeMLModel(repr)) continue;
+    const hint = isNNClass(repr?.class ?? '') || repr?.attrs?.layers?.type === 'list'
+      ? 'nn_model'
+      : 'ml_model';
+    result.push({ name, repr, hint });
+    seen.add(name);
+  }
+
   return result;
 }
 

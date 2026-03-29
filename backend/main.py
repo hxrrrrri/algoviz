@@ -4,7 +4,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 import json
 import asyncio
@@ -27,6 +27,20 @@ class ExecuteRequest(BaseModel):
     inputs: Optional[list] = []
     max_steps: Optional[int] = 5000
     timeout: Optional[float] = 8.0
+
+@app.get("/")
+async def root():
+    return {
+        "service": "algoviz-backend",
+        "status": "ok",
+        "docs": "/docs",
+        "health": "/health",
+        "execute": "/execute"
+    }
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 @app.post("/execute")
 async def execute_code(req: ExecuteRequest):
