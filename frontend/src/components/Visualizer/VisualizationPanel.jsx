@@ -368,23 +368,6 @@ export default function VisualizationPanel() {
     >
       <div className="vp-grid" />
 
-      {/* Executing overlay */}
-      <AnimatePresence>
-        {showOverlay && (
-          <motion.div className="vp-exec-overlay"
-            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-            transition={{ duration:0.2 }}>
-            <div className="vp-exec-ring">
-              <div className="vp-exec-inner">
-                <div className="vp-exec-spinner" />
-              </div>
-            </div>
-            <div className="vp-exec-title">Running…</div>
-            <div className="vp-exec-sub">Executing your code and building the trace</div>
-            <div className="vp-exec-hint">ML models may take up to a minute</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Drop overlay */}
       <AnimatePresence>
@@ -524,8 +507,24 @@ export default function VisualizationPanel() {
         {/* ── Structure mode ── */}
         {vizMode === 'structure' && (
           <>
+            {/* Loading state — only after 400ms delay, uses theme colors */}
+            <AnimatePresence>
+              {showOverlay && !hasTrace && (
+                <motion.div className="vp-exec-loading"
+                  initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                  transition={{ duration:0.25 }}>
+                  <div className="vp-exec-spinner-wrap">
+                    <div className="vp-exec-spinner" />
+                  </div>
+                  <div className="vp-exec-loading-title">Running…</div>
+                  <div className="vp-exec-loading-sub">Building trace</div>
+                  <div className="vp-exec-loading-hint">ML models may take up to a minute</div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Empty state */}
-            {!hasTrace && pinnedVars.length === 0 && (
+            {!hasTrace && !isExecuting && pinnedVars.length === 0 && (
               <div className="vp-empty">
                 <div className="vp-empty-ring">
                   <div className="vp-empty-logo">⟨/⟩</div>
