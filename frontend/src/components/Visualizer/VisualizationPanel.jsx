@@ -687,7 +687,7 @@ export default function VisualizationPanel() {
             animate={{ width: 270, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-            style={{ overflow: 'hidden', flexShrink: 0 }}
+            style={{ overflow: 'hidden', flexShrink: 0, height: '100%' }}
           >
             <div className="vp-fs-sidebar-inner">
               <LiveVariablesPanel />

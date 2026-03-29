@@ -1,6 +1,7 @@
 /* ══ Panel Shell ══ */
 .lvp {
-  display: flex; flex-direction: column; height: 100%;
+  display: flex; flex-direction: column;
+  flex: 1; min-height: 0;          /* flex-based sizing so it fills its container */
   background: var(--bg-panel); overflow: hidden;
   transition: background 0.35s;
 }
