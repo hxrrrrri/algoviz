@@ -176,11 +176,35 @@ def safe_repr(obj, depth=0, max_depth=4):
         module = type(obj).__module__ or ''
         if 'keras' in module and hasattr(obj, 'layers') and hasattr(obj, 'trainable'):
             cls_name = type(obj).__name__
+            # For Functional models, skip pure-structural/op layers with no params
+            _skip_classes = {
+                'InputLayer', 'TFOpLambda', 'TFDataLayer',
+                'ZeroPadding2D', 'ZeroPadding1D', 'ZeroPadding3D',
+                'Cropping1D', 'Cropping2D', 'Cropping3D',
+                'Reshape', 'Flatten',
+                'Add', 'Multiply', 'Subtract', 'Average', 'Maximum', 'Minimum',
+                'Concatenate', 'Dot',
+            }
             layers_data = []
             for layer in obj.layers:
+                layer_cls = type(layer).__name__
+                # Skip non-architectural layers for Functional models
+                if cls_name == 'Functional' and layer_cls in _skip_classes:
+                    continue
+                # Also skip zero-param standalone activation/norm layers in deep nets
+                if cls_name == 'Functional':
+                    try:
+                        if layer.count_params() == 0 and layer_cls in (
+                            'ReLU', 'LeakyReLU', 'ELU', 'ThresholdedReLU', 'PReLU',
+                            'Softmax', 'Activation', 'GlobalAveragePooling2D',
+                            'GlobalMaxPooling2D', 'GlobalAveragePooling1D',
+                        ):
+                            continue
+                    except Exception:
+                        pass
                 lm = type(layer).__module__ or ''
                 ldata = {
-                    "class": type(layer).__name__,
+                    "class": layer_cls,
                     "name":  layer.name,
                 }
                 # Config (units, filters, activation, etc.)
@@ -284,7 +308,7 @@ def detect_structure_hints(locals_repr: Dict) -> Dict[str, str]:
         if t == "object" and obj.get("ml_module"):
             ml_mod = obj.get("ml_module", "")
             cls    = obj.get("class", "").lower()
-            if any(x in cls for x in ("sequential", "model", "network")):
+            if any(x in cls for x in ("sequential", "model", "network", "functional")):
                 hints[name] = "nn_model"
             elif any(x in cls for x in ("history",)):
                 hints[name] = "training_history"
