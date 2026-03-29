@@ -1,0 +1,68 @@
+/* ══ Recursion Tree ══ */
+.rtv { display: flex; flex-direction: column; gap: 10px; }
+
+.rtv-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rtv-title {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  color: var(--accent-2); letter-spacing: 0.03em;
+}
+.rtv-badge {
+  font-family: var(--font-mono); font-size: 9px; color: var(--text-3);
+  background: var(--bg-card); border: 1px solid var(--border-2);
+  border-radius: 4px; padding: 2px 7px;
+}
+.rtv-toggle {
+  margin-left: auto; background: none; border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm); padding: 2px 9px;
+  font-size: 9px; font-weight: 600; color: var(--text-3); cursor: pointer;
+  transition: all 0.14s;
+}
+.rtv-toggle:hover { color: var(--accent-2); border-color: var(--accent-2); background: rgba(124,132,240,0.08); }
+
+.rtv-scroll {
+  overflow-x: auto; overflow-y: visible;
+  padding: 10px 4px 20px;
+  scrollbar-width: thin; scrollbar-color: var(--border-1) transparent;
+}
+.rtv-scroll::-webkit-scrollbar { height: 4px; }
+.rtv-scroll::-webkit-scrollbar-track { background: transparent; }
+.rtv-scroll::-webkit-scrollbar-thumb { background: var(--border-1); border-radius: 4px; }
+
+/* ── Node box ── */
+.rtv-node {
+  display: inline-flex; flex-direction: column; align-items: center;
+  gap: 5px; padding: 6px 8px 8px;
+  background: var(--bg-base);
+  border: 1.5px solid var(--border-1);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.rtv-node-active {
+  border-color: var(--accent-border) !important;
+  background: var(--accent-dim) !important;
+  box-shadow: 0 0 0 1.5px var(--accent-border), 0 0 20px var(--accent-glow) !important;
+}
+
+.rtv-node-label {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  color: var(--text-4); letter-spacing: 0.04em; white-space: nowrap;
+}
+.rtv-node-active .rtv-node-label { color: var(--accent); }
+
+.rtv-node-cells { display: flex; gap: 2px; flex-wrap: nowrap; }
+
+.rtv-node-cell {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  background: var(--bg-card); border: 1px solid var(--border-1);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--text-2); flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+.rtv-nc-active {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+  border-color: var(--accent-border);
+  color: var(--accent);
+}

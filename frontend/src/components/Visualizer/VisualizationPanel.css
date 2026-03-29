@@ -192,17 +192,108 @@
   align-items: center; padding: 0;
 }
 
-/* In fullscreen: shift content slightly toward center (left offset to compensate for no sidebar on left) */
+/* In fullscreen: use full available width */
 .vp-content-fs {
-  padding-left: 60px;
-  padding-right: 60px;
+  padding: 0;
+  align-items: stretch;
 }
 .vp-content-fs .vp-section,
 .vp-content-fs .vp-err-banner,
 .vp-content-fs .vp-pinned-section,
 .vp-content-fs .vp-console {
-  max-width: 900px;
+  max-width: none;
   width: 100%;
+}
+
+/* Fullscreen canvas — absolutely positioned draggable blocks */
+.vp-content-canvas {
+  position: relative !important;
+  overflow: hidden !important;
+  display: block !important;
+}
+
+/* ── Draggable block ── */
+.vp-drag-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column;
+  cursor: default;
+  user-select: none;
+  z-index: 10;
+  overflow: visible;    /* resize handles sit outside */
+}
+.vp-drag-block:hover {
+  border-color: var(--border-2);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.35);
+}
+
+/* Title bar — drag handle */
+.vp-drag-handle {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 10px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border-1);
+  background: var(--bg-base);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: grab;
+}
+.vp-drag-handle:active { cursor: grabbing; }
+.vp-drag-grip { color: var(--text-4); font-size: 13px; line-height: 1; letter-spacing: -1px; }
+.vp-drag-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-3);
+}
+
+/* Content area — both axes scroll */
+.vp-drag-content {
+  padding: 10px; flex: 1;
+  overflow-y: auto; overflow-x: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border-1) transparent;
+}
+.vp-drag-content::-webkit-scrollbar { width: 4px; height: 4px; }
+.vp-drag-content::-webkit-scrollbar-track { background: transparent; }
+.vp-drag-content::-webkit-scrollbar-thumb { background: var(--border-1); border-radius: 4px; }
+
+/* ── 8 Windows-style resize handles ── */
+.vp-resize-handle {
+  position: absolute; z-index: 20;
+  background: transparent;
+}
+/* Edges */
+.vp-rh-n  { top: -4px;  left: 8px; right: 8px; height: 8px; cursor: n-resize; }
+.vp-rh-s  { bottom: -4px; left: 8px; right: 8px; height: 8px; cursor: s-resize; }
+.vp-rh-w  { left: -4px; top: 8px; bottom: 8px; width: 8px; cursor: w-resize; }
+.vp-rh-e  { right: -4px; top: 8px; bottom: 8px; width: 8px; cursor: e-resize; }
+/* Corners */
+.vp-rh-nw { top: -4px; left: -4px; width: 14px; height: 14px; cursor: nw-resize; border-radius: var(--radius-md) 0 0 0; }
+.vp-rh-ne { top: -4px; right: -4px; width: 14px; height: 14px; cursor: ne-resize; border-radius: 0 var(--radius-md) 0 0; }
+.vp-rh-sw { bottom: -4px; left: -4px; width: 14px; height: 14px; cursor: sw-resize; border-radius: 0 0 0 var(--radius-md); }
+.vp-rh-se { bottom: -4px; right: -4px; width: 14px; height: 14px; cursor: se-resize; border-radius: 0 0 var(--radius-md) 0; }
+/* Show subtle corner markers on hover */
+.vp-drag-block:hover .vp-rh-se::after {
+  content: '';
+  position: absolute; inset: 3px;
+  background: linear-gradient(135deg, transparent 40%, var(--border-1) 40%);
+  border-radius: 0 0 3px 0;
+}
+.vp-drag-block:hover .vp-rh-sw::after {
+  content: '';
+  position: absolute; inset: 3px;
+  background: linear-gradient(225deg, transparent 40%, var(--border-1) 40%);
+  border-radius: 0 0 0 3px;
+}
+.vp-drag-block:hover .vp-rh-ne::after {
+  content: '';
+  position: absolute; inset: 3px;
+  background: linear-gradient(45deg, transparent 40%, var(--border-1) 40%);
+  border-radius: 0 3px 0 0;
+}
+.vp-drag-block:hover .vp-rh-nw::after {
+  content: '';
+  position: absolute; inset: 3px;
+  background: linear-gradient(315deg, transparent 40%, var(--border-1) 40%);
+  border-radius: 3px 0 0 0;
 }
 
 /* ── Empty state ── */

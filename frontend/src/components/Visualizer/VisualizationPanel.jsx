@@ -1,5 +1,22 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect, Component } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+/* ── Error boundary — prevents one broken visualizer from crashing the page ── */
+class VizErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text-3)',
+          border: '1px solid var(--border-2)', borderRadius: 6, background: 'var(--bg-base)' }}>
+          ⚠ Visualizer error: {this.state.error.message}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import useStore from '../../store';
 import LiveVariablesPanel from '../panels/LiveVariablesPanel';
 import ArrayVisualizer from './ArrayVisualizer';
@@ -12,6 +29,7 @@ import HeapVisualizer from './HeapVisualizer';
 import GraphVisualizer from './GraphVisualizer';
 import TrainingCurveVisualizer from './TrainingCurveVisualizer';
 import MLModelVisualizer from './MLModelVisualizer';
+import RecursionTreeVisualizer from './RecursionTreeVisualizer';
 import { getPrimaryArray, getMatrix, getTreeNode, getStrings, flattenValue,
          getLinkedList, getStackOrQueue, getHeap, getGraph } from '../../utils/vizMapper';
 import { getTrainingHistory } from './TrainingCurveVisualizer';
@@ -207,6 +225,75 @@ function PinnedVarView({ name, repr, prevRepr, onUnpin }) {
   );
 }
 
+/* ══ Draggable + Windows-style resizable block ══
+   - Title bar: drag to move
+   - 8 resize handles (all edges + corners): resize like a browser window  ══ */
+const EDGES = ['n','ne','e','se','s','sw','w','nw'];
+
+function DraggableBlock({ initialX, initialY, initialW, title, children }) {
+  const [rect, setRect] = useState({ x: initialX, y: initialY, w: initialW, h: 420 });
+  const dragRef  = useRef(null); // tracks active drag/resize operation
+  const MIN_W = 220, MIN_H = 140;
+
+  const startOp = useCallback((e, type, edge = null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { type, edge, mx: e.clientX, my: e.clientY, rect: { ...rect } };
+
+    const onMove = (ev) => {
+      const op = dragRef.current;
+      if (!op) return;
+      const dx = ev.clientX - op.mx;
+      const dy = ev.clientY - op.my;
+      const r  = { ...op.rect };
+
+      if (op.type === 'move') {
+        setRect(prev => ({ ...prev, x: r.x + dx, y: r.y + dy }));
+        return;
+      }
+      // resize — each edge/corner adjusts different sides
+      const ed = op.edge;
+      let { x, y, w, h } = r;
+      if (ed.includes('e'))  { w = Math.max(MIN_W, r.w + dx); }
+      if (ed.includes('s'))  { h = Math.max(MIN_H, r.h + dy); }
+      if (ed.includes('w'))  { const nw = Math.max(MIN_W, r.w - dx); x = r.x + (r.w - nw); w = nw; }
+      if (ed.includes('n'))  { const nh = Math.max(MIN_H, r.h - dy); y = r.y + (r.h - nh); h = nh; }
+      setRect({ x, y, w, h });
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [rect]);
+
+  return (
+    <div
+      className="vp-drag-block"
+      style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+    >
+      {/* 8 resize handles */}
+      {EDGES.map(edge => (
+        <div key={edge} className={`vp-resize-handle vp-rh-${edge}`}
+          onMouseDown={(e) => startOp(e, 'resize', edge)} />
+      ))}
+
+      {/* Title bar — drag to move */}
+      <div className="vp-drag-handle" onMouseDown={(e) => startOp(e, 'move')}>
+        <span className="vp-drag-grip">⠿</span>
+        <span className="vp-drag-label">{title}</span>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="vp-drag-content" style={{ height: rect.h - 36 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /* ══ Main Panel ══ */
 export default function VisualizationPanel() {
   const trace          = useStore(s => s.trace);
@@ -229,7 +316,8 @@ export default function VisualizationPanel() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [showOverlay, setShowOverlay]   = useState(false);
-  const panelRef = useRef(null);
+  const panelRef  = useRef(null);
+  const canvasRef = useRef(null);   // drag constraints target for fullscreen canvas
 
   // Only show the running overlay after 400 ms — fast code never triggers it
   useEffect(() => {
@@ -319,6 +407,22 @@ export default function VisualizationPanel() {
   const hasAnyContent = dispHasArray || dispHasMatrix || !!dispTreeData || dispStrings.length > 0
     || dispHasLL || dispHasSQ || dispHasHeap || dispHasGraph || dispHasML || pinnedVars.length > 0;
 
+  /* ── Recursion detection ──
+     Only show the recursion tree when a function genuinely calls itself.
+     We check every trace step's call_stack for duplicate function names.
+     Iterative algorithms (binary search, two-pointer, DP loops) never
+     produce a repeated function name — only real recursive calls do. ── */
+  const hasRecursion = useMemo(() => {
+    for (const s of trace) {
+      const cs = s.call_stack;
+      if (!cs || cs.length < 2) continue;
+      const fns = cs.map(f => f.function);
+      // A function name appearing more than once = it called itself
+      if (new Set(fns).size < fns.length) return true;
+    }
+    return false;
+  }, [trace]);
+
   /* ── Drag-and-drop ── */
   const handleDragOver  = useCallback((e) => {
     if (e.dataTransfer.types.includes('application/codeviz-var')) {
@@ -332,9 +436,9 @@ export default function VisualizationPanel() {
     if (name) pinVar(name);
   }, [pinVar]);
 
-  // Update pinned cache with any currently-visible values
+  // Update pinned cache with any currently-visible values (all vars, not just already-pinned)
   if (step) {
-    for (const name of pinnedVars) {
+    for (const name of Object.keys(locals)) {
       const cur = locals[name];
       const prv = prevLocals[name];
       if (cur) {
@@ -348,7 +452,8 @@ export default function VisualizationPanel() {
 
   const pinnedData = useMemo(() => {
     return pinnedVars.map(name => {
-      const live    = locals[name];
+      // live value at current step
+      const live    = locals[name] || prevLocals[name];
       const livePrv = prevLocals[name];
       if (live) return { name, repr: live, prevRepr: livePrv || null };
       // Fall back to last cached value so the card stays visible after scope ends
@@ -490,7 +595,10 @@ export default function VisualizationPanel() {
       <div className="vp-body">
 
       {/* Content */}
-      <div className={`vp-content ${isFullscreen ? 'vp-content-fs' : ''}`}>
+      <div
+        className={`vp-content ${isFullscreen ? 'vp-content-fs' : ''} ${isFullscreen && vizMode === 'structure' && hasTrace ? 'vp-content-canvas' : ''}`}
+        ref={canvasRef}
+      >
 
         {/* ── Flow mode ── */}
         {vizMode === 'flow' && hasTrace && (
@@ -507,7 +615,7 @@ export default function VisualizationPanel() {
         {/* ── Structure mode ── */}
         {vizMode === 'structure' && (
           <>
-            {/* Loading state — only after 400ms delay, uses theme colors */}
+            {/* Loading state */}
             <AnimatePresence>
               {showOverlay && !hasTrace && (
                 <motion.div className="vp-exec-loading"
@@ -536,151 +644,134 @@ export default function VisualizationPanel() {
               </div>
             )}
 
-            {/* Console output */}
-            {hasTrace && step?.stdout?.trim() && (
-              <ConsoleOutput stdout={step.stdout} />
-            )}
+            {/* ── FULLSCREEN CANVAS: draggable blocks ── */}
+            {isFullscreen && hasTrace && (() => {
+              const blocks = [];
+              // Two-column grid. col1 = left, col2 = right (starts at 50% of canvas)
+              const W = canvasRef.current?.offsetWidth || 1200;
+              const col1x = 20, col2x = Math.floor(W / 2) + 10;
+              let col1y = 16, col2y = 16;
 
-            {/* Error banner */}
-            {hasTrace && isError && step?.error && (
-              <motion.div className="vp-err-banner"
-                initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}>
-                <div className="vp-err-icon">⚠</div>
-                <div>
-                  <div className="vp-err-type">{step.error.type}</div>
-                  <div className="vp-err-msg">
-                    {step.error.message}{step.error.line ? ` — line ${step.error.line}` : ''}
+              // Compute natural width for array-based blocks
+              const arrValues = dispStep ? (() => {
+                const loc = dispStep.locals || {};
+                for (const v of Object.values(loc)) {
+                  if (v?.type === 'list' && Array.isArray(v.value)) return v.value;
+                }
+                return [];
+              })() : [];
+              const arrW = Math.max(380, Math.min(W / 2 - 30, arrValues.length * 62 + 80));
+
+              const push = (key, title, col, node, w) => {
+                const blockW = w || Math.floor(W / 2) - 30;
+                const x = col === 1 ? col1x : col2x;
+                const y = col === 1 ? col1y : col2y;
+                const gap = 420;
+                if (col === 1) col1y += gap; else col2y += gap;
+                blocks.push({ key, title, x, y, w: blockW, node });
+              };
+
+              if (step?.stdout?.trim()) push('con', 'Output', 1, <ConsoleOutput stdout={step.stdout} />, 360);
+              if (isError && step?.error) push('err', 'Error', 1,
+                <div className="vp-err-banner" style={{ position:'static', margin:0 }}>
+                  <div className="vp-err-icon">⚠</div>
+                  <div><div className="vp-err-type">{step.error.type}</div>
+                  <div className="vp-err-msg">{step.error.message}</div></div>
+                </div>, 400);
+              if (dispStrings.length > 0) push('str', 'Strings', 1,
+                <div>{dispStrings.map(s => <StringBar key={s.name} name={s.name} value={s.value} />)}</div>);
+              if (dispHasArray)  push('arr',  'Array',          1, <ArrayVisualizer stepData={dispStep} />, arrW);
+              if (dispHasArray && hasRecursion) push('rtv', 'Recursion Tree', 1,
+                <VizErrorBoundary><RecursionTreeVisualizer trace={trace} currentStep={currentStep} /></VizErrorBoundary>,
+                Math.max(520, arrW));
+              if (dispHasMatrix) push('mat',  'Matrix',         2, <MatrixVisualizer stepData={dispStep} />);
+              if (dispTreeData)  push('tree', 'Tree',           2, <TreeVisualizer name={dispTreeData.name} repr={dispTreeData.repr} prevRepr={prevTreeData?.repr||null} />);
+              if (dispHasLL)     push('ll',   'Linked List',    1, <LinkedListVisualizer stepData={dispStep} />);
+              if (dispHasSQ)     push('sq',   'Stack / Queue',  1, <StackQueueVisualizer stepData={dispStep} />);
+              if (dispHasHeap)   push('heap', 'Heap',           2, <HeapVisualizer trace={trace} currentStep={currentStep} />);
+              if (dispHasGraph)  push('graph','Graph',          2, <GraphVisualizer stepData={dispStep} />);
+              if (dispHasML) {
+                push('tc',  'Training Curve', 1, <TrainingCurveVisualizer stepData={dispStep} />);
+                push('mlm', 'Model',          2, <MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} />);
+              }
+              pinnedData.forEach(({ name, repr, prevRepr }) => {
+                if (repr) push(`pin-${name}`, `📌 ${name}`, 2,
+                  <PinnedVarView name={name} repr={repr} prevRepr={prevRepr} onUnpin={unpinVar} />, 340);
+              });
+              return blocks.map(({ key, title, x, y, w, node }) => (
+                <DraggableBlock key={key} initialX={x} initialY={y} initialW={w} title={title}>
+                  {node}
+                </DraggableBlock>
+              ));
+            })()}
+
+            {/* ── NORMAL MODE: scrollable column ── */}
+            {!isFullscreen && (
+              <>
+                {hasTrace && step?.stdout?.trim() && <ConsoleOutput stdout={step.stdout} />}
+                {hasTrace && isError && step?.error && (
+                  <motion.div className="vp-err-banner" initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}>
+                    <div className="vp-err-icon">⚠</div>
+                    <div><div className="vp-err-type">{step.error.type}</div>
+                    <div className="vp-err-msg">{step.error.message}{step.error.line ? ` — line ${step.error.line}` : ''}</div></div>
+                  </motion.div>
+                )}
+                {hasTrace && dispStrings.length > 0 && (
+                  <div className="vp-section">{dispStrings.map(s => <StringBar key={s.name} name={s.name} value={s.value} />)}</div>
+                )}
+                {hasTrace && dispHasArray && (
+                  <AnimatePresence><motion.div key="arr" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><ArrayVisualizer stepData={dispStep} /></motion.div></AnimatePresence>
+                )}
+                {/* Recursion tree — only when recursion/DP detected, no AnimatePresence to prevent blinking */}
+                {hasTrace && dispHasArray && hasRecursion && (
+                  <div className="vp-section">
+                    <VizErrorBoundary>
+                      <RecursionTreeVisualizer trace={trace} currentStep={currentStep} />
+                    </VizErrorBoundary>
                   </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Strings */}
-            {hasTrace && dispStrings.length > 0 && (
-              <div className="vp-section">
-                {dispStrings.map(s => <StringBar key={s.name} name={s.name} value={s.value} />)}
-              </div>
-            )}
-
-            {/* Array */}
-            {hasTrace && dispHasArray && (
-              <AnimatePresence>
-                <motion.div key="arr" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <ArrayVisualizer stepData={dispStep} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* Matrix / DP table — show even when arrays are also present */}
-            {hasTrace && dispHasMatrix && (
-              <AnimatePresence>
-                <motion.div key="mat" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <MatrixVisualizer stepData={dispStep} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* Tree */}
-            {hasTrace && dispTreeData && (
-              <AnimatePresence>
-                <motion.div key="tree" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <TreeVisualizer
-                    name={dispTreeData.name}
-                    repr={dispTreeData.repr}
-                    prevRepr={prevTreeData?.repr || null}
-                  />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* Linked List */}
-            {hasTrace && dispHasLL && (
-              <AnimatePresence>
-                <motion.div key="ll" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <LinkedListVisualizer stepData={dispStep} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* Stack / Queue / Deque */}
-            {hasTrace && dispHasSQ && (
-              <AnimatePresence>
-                <motion.div key="sq" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <StackQueueVisualizer stepData={dispStep} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* Heap — shows all stages, persists after execution ends */}
-            {hasTrace && dispHasHeap && (
-              <AnimatePresence>
-                <motion.div key="heap" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <HeapVisualizer trace={trace} currentStep={currentStep} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* Graph */}
-            {hasTrace && dispHasGraph && (
-              <AnimatePresence>
-                <motion.div key="graph" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <GraphVisualizer stepData={dispStep} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* ML: Training curve */}
-            {hasTrace && dispHasML && (
-              <AnimatePresence>
-                <motion.div key="tc" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <TrainingCurveVisualizer stepData={dispStep} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* ML: Model card (sklearn / keras) */}
-            {hasTrace && dispHasML && (
-              <AnimatePresence>
-                <motion.div key="mlm" className="vp-section"
-                  initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                  <MLModelVisualizer stepData={dispStep}
-                    currentStep={currentStep}
-                    traceLength={trace.length}
-                    isExecuting={isExecuting} />
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* No structure detected */}
-            {hasTrace && !hasAnyContent && !isError && (
-              <div className="vp-no-struct">
-                <div className="vp-no-struct-icon">◇</div>
-                <div>No structure detected</div>
-                <div className="vp-no-struct-hint">Switch to Flow view to see execution →</div>
-              </div>
-            )}
-
-            {/* Pinned variables */}
-            {pinnedData.length > 0 && (
-              <div className="vp-pinned-section">
-                {hasAnyContent && <div className="vp-pinned-divider">Pinned Variables</div>}
-                <AnimatePresence>
-                  {pinnedData.map(({ name, repr, prevRepr }) =>
-                    repr && (
-                      <PinnedVarView key={name} name={name} repr={repr}
-                        prevRepr={prevRepr} onUnpin={unpinVar} />
-                    )
-                  )}
-                </AnimatePresence>
-              </div>
+                )}
+                {hasTrace && dispHasMatrix && (
+                  <AnimatePresence><motion.div key="mat" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><MatrixVisualizer stepData={dispStep} /></motion.div></AnimatePresence>
+                )}
+                {hasTrace && dispTreeData && (
+                  <AnimatePresence><motion.div key="tree" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><TreeVisualizer name={dispTreeData.name} repr={dispTreeData.repr} prevRepr={prevTreeData?.repr||null} /></motion.div></AnimatePresence>
+                )}
+                {hasTrace && dispHasLL && (
+                  <AnimatePresence><motion.div key="ll" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><LinkedListVisualizer stepData={dispStep} /></motion.div></AnimatePresence>
+                )}
+                {hasTrace && dispHasSQ && (
+                  <AnimatePresence><motion.div key="sq" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><StackQueueVisualizer stepData={dispStep} /></motion.div></AnimatePresence>
+                )}
+                {hasTrace && dispHasHeap && (
+                  <AnimatePresence><motion.div key="heap" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><HeapVisualizer trace={trace} currentStep={currentStep} /></motion.div></AnimatePresence>
+                )}
+                {hasTrace && dispHasGraph && (
+                  <AnimatePresence><motion.div key="graph" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><GraphVisualizer stepData={dispStep} /></motion.div></AnimatePresence>
+                )}
+                {hasTrace && dispHasML && (
+                  <AnimatePresence>
+                    <motion.div key="tc" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><TrainingCurveVisualizer stepData={dispStep} /></motion.div>
+                    <motion.div key="mlm" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} /></motion.div>
+                  </AnimatePresence>
+                )}
+                {hasTrace && !hasAnyContent && !isError && (
+                  <div className="vp-no-struct">
+                    <div className="vp-no-struct-icon">◇</div>
+                    <div>No structure detected</div>
+                    <div className="vp-no-struct-hint">Switch to Flow view to see execution →</div>
+                  </div>
+                )}
+                {pinnedData.length > 0 && (
+                  <div className="vp-pinned-section">
+                    {hasAnyContent && <div className="vp-pinned-divider">Pinned Variables</div>}
+                    <AnimatePresence>
+                      {pinnedData.map(({ name, repr, prevRepr }) =>
+                        repr && <PinnedVarView key={name} name={name} repr={repr} prevRepr={prevRepr} onUnpin={unpinVar} />
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

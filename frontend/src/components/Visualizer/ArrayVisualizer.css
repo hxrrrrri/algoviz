@@ -1,91 +1,105 @@
-.av { display:flex; flex-direction:column; gap:18px; }
-.av-header { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.av-name { font-family:var(--font-mono); font-size:13px; font-weight:600; color:var(--accent); }
-.av-len  { font-family:var(--font-mono); font-size:11px; color:var(--text-3); }
-.av-ptr-pills { display:flex; gap:5px; flex-wrap:wrap; }
+.av { display: flex; flex-direction: column; gap: 14px; }
+
+/* Header */
+.av-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.av-name { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--accent); }
+.av-len  { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.av-ptr-pills { display: flex; gap: 5px; flex-wrap: wrap; }
 .ptr-pill {
-  font-family:var(--font-mono); font-size:10px; font-weight:600; color:var(--pc);
-  background:color-mix(in srgb, var(--pc) 12%, transparent);
-  border:1px solid color-mix(in srgb, var(--pc) 30%, transparent);
-  border-radius:4px; padding:2px 8px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--pc);
+  background: color-mix(in srgb, var(--pc) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc) 30%, transparent);
+  border-radius: 4px; padding: 2px 8px;
 }
 
-.av-stage { position:relative; padding-top:48px; overflow-x:auto; padding-bottom:4px; }
+/* Scrollable stage */
+.av-stage { overflow-x: auto; padding-bottom: 6px; }
+.av-stage::-webkit-scrollbar { height: 4px; }
+.av-stage::-webkit-scrollbar-track { background: transparent; }
+.av-stage::-webkit-scrollbar-thumb { background: var(--border-1); border-radius: 4px; }
 
-.av-ptr-row { position:absolute; top:0; left:0; height:46px; }
-.av-ptr-col { position:absolute; display:flex; flex-direction:column; align-items:center; gap:2px; }
+/* CSS Grid — each column maps 1:1 to an array element.
+   Pointer row and cell row share the same column widths → always aligned. */
+.av-grid {
+  display: grid;
+  gap: 0 6px;           /* only column gap; row gap = 0 */
+  width: fit-content;   /* shrink to content, not container */
+}
+
+/* ── Row 1: Pointer column ── */
+.av-ptr-cell {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: flex-end; gap: 2px;
+  height: 50px;          /* fixed height so row 1 is always the same */
+  padding-bottom: 0;
+}
+.av-ptr-tags {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
 .av-ptr-tag {
-  background:color-mix(in srgb, var(--pc) 18%, var(--bg-card));
-  border:1px solid color-mix(in srgb, var(--pc) 40%, transparent);
-  color:var(--pc); font-family:var(--font-mono); font-size:10px; font-weight:700;
-  padding:2px 7px; border-radius:5px; white-space:nowrap;
-  box-shadow:0 2px 8px color-mix(in srgb, var(--pc) 20%, transparent);
+  background: color-mix(in srgb, var(--pc) 18%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--pc) 40%, transparent);
+  color: var(--pc);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 5px; white-space: nowrap;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pc) 20%, transparent);
 }
 .av-ptr-arrow {
-  width:2px; height:12px;
-  background:linear-gradient(to bottom, var(--pc), transparent);
-  border-radius:1px; position:relative;
+  width: 2px; height: 10px;
+  background: linear-gradient(to bottom, var(--pc), transparent);
+  border-radius: 1px; position: relative; flex-shrink: 0;
 }
 .av-ptr-arrow::after {
-  content:''; position:absolute; bottom:-4px; left:-3px;
-  border-left:4px solid transparent; border-right:4px solid transparent;
-  border-top:5px solid var(--pc);
+  content: ''; position: absolute; bottom: -4px; left: -3px;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid var(--pc);
 }
 
-.av-cells { display:flex; gap:6px; align-items:flex-end; position:relative; z-index:2; }
-
+/* ── Row 2: Cell ── */
 .av-cell {
-  position:relative; display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  border-radius:var(--radius-md);
-  background:var(--bg-card); border:1.5px solid var(--border-1);
-  cursor:default; overflow:hidden; transition:border-color 0.15s, background 0.15s;
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-card); border: 1.5px solid var(--border-1);
+  cursor: default; overflow: hidden; transition: border-color 0.15s, background 0.15s;
 }
-[data-theme="glass"] .av-cell {
-  backdrop-filter:blur(8px); background:var(--bg-card);
-}
+[data-theme="glass"] .av-cell { backdrop-filter: blur(8px); }
 
-/* Top specular shine */
 .av-cell::before {
-  content:''; position:absolute; top:0; left:0; right:0; height:40%;
-  background:linear-gradient(180deg,rgba(255,255,255,0.07),transparent);
-  border-radius:var(--radius-md) var(--radius-md) 0 0; pointer-events:none;
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), transparent);
+  border-radius: var(--radius-md) var(--radius-md) 0 0; pointer-events: none;
 }
-[data-mode="light"] .av-cell::before { background:linear-gradient(180deg,rgba(255,255,255,0.5),transparent); }
 
-.av-cell.st-normal  { border-color:var(--border-1); }
-.av-cell.st-boundary {
-  border-color:var(--accent-border);
-  background:color-mix(in srgb, var(--accent) 6%, var(--bg-card));
+.av-cell.st-normal    { border-color: var(--border-1); }
+.av-cell.st-boundary  {
+  border-color: var(--accent-border);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-card));
 }
 .av-cell.st-active {
-  border-color:color-mix(in srgb, var(--accent-5) 70%, transparent);
-  background:color-mix(in srgb, var(--accent-5) 8%, var(--bg-card));
-  box-shadow:0 0 16px color-mix(in srgb, var(--accent-5) 25%, transparent);
+  border-color: color-mix(in srgb, var(--accent-5) 70%, transparent);
+  background: color-mix(in srgb, var(--accent-5) 8%, var(--bg-card));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent-5) 25%, transparent);
 }
 .av-cell.st-mid {
-  border-color:color-mix(in srgb, var(--accent) 80%, transparent);
-  background:color-mix(in srgb, var(--accent) 10%, var(--bg-card));
-  box-shadow:0 0 24px var(--accent-glow), inset 0 0 8px var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 80%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+  box-shadow: 0 0 24px var(--accent-glow), inset 0 0 8px var(--accent-dim);
 }
 .av-cell.st-eliminated {
-  border-color:var(--border-2);
-  background:var(--bg-base);
-  opacity:0.32;
-  filter:saturate(0);
-  pointer-events:none;
+  border-color: var(--border-2); background: var(--bg-base);
+  opacity: 0.28; filter: saturate(0); pointer-events: none;
 }
 
 .av-cell-val {
-  font-family:var(--font-mono); font-size:15px; font-weight:700;
-  color:var(--text-1); z-index:1; line-height:1;
+  font-family: var(--font-mono); font-size: 15px; font-weight: 700;
+  color: var(--text-1); z-index: 1; line-height: 1;
 }
-.av-cell.st-eliminated .av-cell-val { color:var(--text-3); }
-.av-cell.st-mid        .av-cell-val { color:var(--accent); }
-.av-cell.st-active     .av-cell-val { color:var(--accent-5); }
+.av-cell.st-eliminated .av-cell-val { color: var(--text-3); }
+.av-cell.st-mid        .av-cell-val { color: var(--accent); }
+.av-cell.st-active     .av-cell-val { color: var(--accent-5); }
 
 .av-cell-idx {
-  font-family:var(--font-mono); font-size:9px; color:var(--text-3);
-  position:absolute; bottom:3px; right:4px; z-index:1;
+  font-family: var(--font-mono); font-size: 9px; color: var(--text-3);
+  position: absolute; bottom: 3px; right: 4px; z-index: 1;
 }
-
