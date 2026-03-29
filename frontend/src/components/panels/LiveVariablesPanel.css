@@ -66,6 +66,7 @@
 .vr {
   position: relative;
   display: flex; flex-direction: column;
+  flex-shrink: 0;                   /* never compress — overflow triggers scroll instead */
   border-radius: var(--radius-md);
   background: var(--bg-card);
   border: 1px solid var(--border-1);
