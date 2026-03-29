@@ -228,7 +228,15 @@ export default function VisualizationPanel() {
   const [vizMode, setVizMode]           = useState('structure');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [showOverlay, setShowOverlay]   = useState(false);
   const panelRef = useRef(null);
+
+  // Only show the running overlay after 400 ms — fast code never triggers it
+  useEffect(() => {
+    if (!isExecuting) { setShowOverlay(false); return; }
+    const t = setTimeout(() => setShowOverlay(true), 400);
+    return () => clearTimeout(t);
+  }, [isExecuting]);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -362,7 +370,7 @@ export default function VisualizationPanel() {
 
       {/* Executing overlay */}
       <AnimatePresence>
-        {isExecuting && (
+        {showOverlay && (
           <motion.div className="vp-exec-overlay"
             initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
             transition={{ duration:0.2 }}>
