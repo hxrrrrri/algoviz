@@ -329,6 +329,33 @@ def detect_structure_hints(locals_repr: Dict) -> Dict[str, str]:
                 hints[name] = "ml_model"
             continue
 
+        if t == "object":
+            cls = obj.get("class", "").lower()
+            attrs_map = obj.get("attrs", {}) if isinstance(obj.get("attrs", {}), dict) else {}
+            attr_keys = set(attrs_map.keys())
+            has_layers = (
+                isinstance(attrs_map.get("layers"), dict) and attrs_map["layers"].get("type") == "list"
+            ) or (
+                isinstance(attrs_map.get("_layers"), dict) and attrs_map["_layers"].get("type") == "list"
+            )
+            nn_tokens = (
+                "ann", "cnn", "gan", "generator", "discriminator", "autoencoder", "vae", "unet",
+                "sequential", "functional", "model", "network", "conv", "lstm", "gru",
+                "transformer", "resnet", "residual",
+            )
+            if any(tok in cls for tok in nn_tokens) or has_layers or attr_keys.intersection({
+                "optimizer", "compiled_loss", "trainable", "trainable_weights",
+                "non_trainable_weights", "weights", "metrics", "loss",
+            }):
+                hints[name] = "nn_model"
+                continue
+
+            if "history" in attr_keys:
+                hist_repr = attrs_map.get("history")
+                if isinstance(hist_repr, dict) and hist_repr.get("type") in ("dict", "keras_history", "list"):
+                    hints[name] = "training_history"
+                    continue
+
         # Training history dict: has 'loss' key with a list value
         if t == "dict" and val:
             keys = set(val.keys())
@@ -462,9 +489,11 @@ def _is_heavy_ml(code: str) -> bool:
     patterns = [
         r'\bConv2D\b', r'\bConv1D\b', r'\bLSTM\b', r'\bGRU\b',
         r'\bTransformer\b', r'\bBERT\b', r'\bResNet\b',
+        r'\bGAN\b', r'\bgenerator\b', r'\bdiscriminator\b',
         r'epochs\s*=\s*[5-9]\d*',   # epochs >= 5
         r'epochs\s*=\s*\d{2,}',     # epochs >= 10
         r'\.fit\(.*X_train',         # training on full dataset
+        r'cifar10\.load_data\s*\(', # common heavy dataset path
     ]
     for p in patterns:
         if re.search(p, code):
@@ -474,21 +503,49 @@ def _is_heavy_ml(code: str) -> bool:
 
 def _cap_ml_dataset(code: str) -> str:
     """
-    For visualization: cap large datasets to 2000/500 samples so
-    training finishes in a reasonable time. Epochs are not modified.
+    For visualization: cap large datasets and fit epochs so training
+    finishes in a reasonable time on CPU-only environments.
     """
     import re
 
-    # ── Cap dataset size ──────────────────────────────────────────
+    # ── Cap dataset size + fit epochs ─────────────────────────────
     if re.search(r'\.fit\s*\(', code):
         cap_snippet = (
-            "\n# [AlgoViz] cap dataset for fast visualization\n"
-            "if 'X_train' in dir() and hasattr(X_train, '__len__') and len(X_train) > 2000:\n"
-            "    X_train, y_train = X_train[:2000], y_train[:2000]\n"
-            "if 'X_test' in dir() and hasattr(X_test, '__len__') and len(X_test) > 500:\n"
-            "    X_test, y_test = X_test[:500], y_test[:500]\n"
+            "\n# [AlgoViz] cap ML workload for fast visualization\n"
+            "_ALGOVIZ_TRAIN_CAP = 512\n"
+            "_ALGOVIZ_TEST_CAP = 128\n"
+            "_ALGOVIZ_MAX_EPOCHS = 2\n"
+            "if 'X_train' in dir() and 'y_train' in dir() and hasattr(X_train, '__len__') and len(X_train) > _ALGOVIZ_TRAIN_CAP:\n"
+            "    X_train, y_train = X_train[:_ALGOVIZ_TRAIN_CAP], y_train[:_ALGOVIZ_TRAIN_CAP]\n"
+            "if 'X_test' in dir() and 'y_test' in dir() and hasattr(X_test, '__len__') and len(X_test) > _ALGOVIZ_TEST_CAP:\n"
+            "    X_test, y_test = X_test[:_ALGOVIZ_TEST_CAP], y_test[:_ALGOVIZ_TEST_CAP]\n"
+            "try:\n"
+            "    _algoviz_orig_fit = keras.Model.fit\n"
+            "    def _algoviz_fit(self, *args, **kwargs):\n"
+            "        _ep = kwargs.get('epochs', 1)\n"
+            "        try:\n"
+            "            _ep = int(_ep)\n"
+            "        except Exception:\n"
+            "            _ep = 1\n"
+            "        kwargs['epochs'] = min(max(_ep, 1), _ALGOVIZ_MAX_EPOCHS)\n"
+            "        kwargs.setdefault('verbose', 0)\n"
+            "        return _algoviz_orig_fit(self, *args, **kwargs)\n"
+            "    keras.Model.fit = _algoviz_fit\n"
+            "except Exception:\n"
+            "    pass\n"
         )
-        fit_match = re.search(r'^(.*model\.fit\s*\()', code, re.MULTILINE)
+
+        # Clamp literal epochs=... in user code too (when present).
+        def _clamp_epochs(match):
+            try:
+                val = int(match.group(1))
+            except Exception:
+                return match.group(0)
+            return f"epochs={min(max(val, 1), 2)}"
+
+        code = re.sub(r'epochs\s*=\s*(\d+)', _clamp_epochs, code)
+
+        fit_match = re.search(r'^[^\n]*\.fit\s*\(', code, re.MULTILINE)
         if fit_match:
             code = code[:fit_match.start()] + cap_snippet + code[fit_match.start():]
 
@@ -516,9 +573,9 @@ class PythonExecutor:
         # Auto-raise limits for ML/scientific code
         if _is_ml_code(code):
             self.max_steps = max(self.max_steps, 50_000)
-            self.timeout   = max(self.timeout,   120.0)   # 2 min baseline for ML
+            self.timeout   = max(self.timeout,   180.0)   # 3 min baseline for ML
             if _is_heavy_ml(code):
-                self.timeout = max(self.timeout, 240.0)   # 4 min for CNN/LSTM/large models
+                self.timeout = max(self.timeout, 600.0)   # 10 min for CNN/LSTM/GAN-heavy models
             # Cap large datasets so training finishes in visualization time
             code = _cap_ml_dataset(code)
 

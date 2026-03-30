@@ -35,18 +35,30 @@ function resolvePointers(locals) {
 }
 
 export default function MatrixVisualizer({ stepData }) {
+  const [collapsedOverrides, setCollapsedOverrides] = useState({});
+
   const { locals, structure_hints: hints } = stepData || {};
   const data = getMatrix(locals, hints);
+  const matrixKey = data ? `${data.name}:${data.rows.length}x${data.rows[0]?.length ?? 0}` : null;
+  const isLarge = data ? (data.rows.length > 12 || (data.rows[0]?.length ?? 0) > 12) : false;
+  const collapsed = matrixKey && Object.prototype.hasOwnProperty.call(collapsedOverrides, matrixKey)
+    ? collapsedOverrides[matrixKey]
+    : isLarge;
+
+  const handleToggleCollapse = () => {
+    if (!matrixKey) return;
+    setCollapsedOverrides(prev => ({
+      ...prev,
+      [matrixKey]: !collapsed,
+    }));
+  };
+
   if (!data) return null;
   const { name, rows } = data;
   const nr = rows.length, nc = rows[0]?.length ?? 0;
 
   const { row: ip, col: jp, rowName, colName } = resolvePointers(locals);
   const isDp = hints?.[name] === 'dp_table';
-
-  // Auto-collapse large matrices (e.g. 28×28 image tensors)
-  const isLarge = nr > 12 || nc > 12;
-  const [collapsed, setCollapsed] = useState(isLarge);
 
   return (
     <div className="mv">
@@ -60,7 +72,7 @@ export default function MatrixVisualizer({ stepData }) {
             {jp !== null && <span className="mv-ptr"><span className="mv-ptr-name">{colName}</span><span className="mv-ptr-eq">=</span>{jp}</span>}
           </div>
         )}
-        <button className="mv-collapse-btn" onClick={() => setCollapsed(v => !v)}
+        <button className="mv-collapse-btn" onClick={handleToggleCollapse}
           title={collapsed ? 'Expand matrix' : 'Collapse matrix'}>
           {collapsed ? '▾ Show' : '▴ Hide'}
         </button>

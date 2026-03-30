@@ -13,7 +13,18 @@ function displayVal(repr) {
 }
 
 function isNNClass(cls) {
-  return /sequential|functional|model|dense|conv|lstm|gru|transformer|resnet|residual/i.test(cls);
+  return /sequential|functional|model|network|dense|conv|cnn|ann|gan|generator|discriminator|autoencoder|vae|unet|lstm|gru|transformer|resnet|residual/i.test(cls);
+}
+
+function hasLayerList(repr) {
+  return repr?.attrs?.layers?.type === 'list' || repr?.attrs?._layers?.type === 'list';
+}
+
+function hasNNMarkers(repr) {
+  const attrs = repr?.attrs;
+  if (!attrs || typeof attrs !== 'object') return false;
+  const keys = Object.keys(attrs);
+  return keys.some(k => /layer|weight|trainable|optimizer|loss|metric|compiled|generator|discriminator/i.test(k));
 }
 
 /* ── Layer config ── */
@@ -78,7 +89,9 @@ function looksLikeMLModel(repr) {
   if (/keras|tensorflow|torch|sklearn|xgboost|lightgbm/.test(mlModule)) return true;
   if (isNNClass(cls)) return true;
   if (repr.params && typeof repr.params === 'object') return true;
-  if (repr.attrs?.layers?.type === 'list') return true;
+  if (hasLayerList(repr)) return true;
+  if (hasNNMarkers(repr)) return true;
+  if (/keras|tensorflow|torch/.test(String(repr.value || repr.display || '').toLowerCase())) return true;
   return false;
 }
 
@@ -87,7 +100,8 @@ function extractLayers(repr) {
   const attrs = repr?.attrs || {};
   const layerRepr = attrs._layers ?? attrs.layers ?? null;
   if (!layerRepr || layerRepr.type !== 'list') return null;
-  return (layerRepr.value || []).map((lr, idx) => {
+  if (!Array.isArray(layerRepr.value)) return [];
+  return layerRepr.value.map((lr, idx) => {
     const la = lr?.attrs || {};
     const cls        = lr?.class ?? 'Layer';
     const name       = la.name?.value ?? `layer_${idx}`;
@@ -447,8 +461,11 @@ export function getMLModels(locals, hints) {
 
   // Fallback path: infer from locals to handle hint misses.
   for (const [name, repr] of Object.entries(locals)) {
-    if (seen.has(name) || !looksLikeMLModel(repr)) continue;
-    const hint = isNNClass(repr?.class ?? '') || repr?.attrs?.layers?.type === 'list'
+    if (seen.has(name)) continue;
+    const n = name.toLowerCase();
+    const nameSuggestsModel = /model|network|net|ann|cnn|gan|generator|discriminator|autoencoder|vae|encoder|decoder/.test(n);
+    if (!nameSuggestsModel && !looksLikeMLModel(repr)) continue;
+    const hint = isNNClass(repr?.class ?? '') || hasLayerList(repr) || nameSuggestsModel
       ? 'nn_model'
       : 'ml_model';
     result.push({ name, repr, hint });
@@ -461,7 +478,13 @@ export function getMLModels(locals, hints) {
 /* ── Main ── */
 export default function MLModelVisualizer({ stepData, currentStep, traceLength, isExecuting }) {
   const { locals, structure_hints: hints } = stepData || {};
-  const models = useMemo(() => getMLModels(locals, hints), [locals, hints]);
+  const models = useMemo(() => {
+    try {
+      return getMLModels(locals, hints);
+    } catch {
+      return [];
+    }
+  }, [locals, hints]);
   if (!models.length) return null;
 
   return (

@@ -37,6 +37,22 @@ import { getMLModels } from './MLModelVisualizer';
 import { analyzeComplexity, complexityColor } from '../../utils/complexityAnalyzer';
 import './VisualizationPanel.css';
 
+function hasTrainingHistorySafe(locals, hints) {
+  try {
+    return !!getTrainingHistory(locals, hints);
+  } catch {
+    return false;
+  }
+}
+
+function hasMLModelSafe(locals, hints) {
+  try {
+    return getMLModels(locals, hints).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /* ── Console output ── */
 function ConsoleOutput({ stdout }) {
   const lines = stdout.trim().split('\n').slice(-20);
@@ -359,7 +375,10 @@ export default function VisualizationPanel() {
   // Heap: check entire trace, not just current step (so it stays visible end-to-end)
   const hasHeap    = useMemo(() => trace.some(s => !!getHeap(s.locals, s.structure_hints)), [trace]);
   const hasGraph   = useMemo(() => step ? !!getGraph(locals, hints)               : false, [step, locals, hints]);
-  const hasML      = useMemo(() => step ? !!getTrainingHistory(locals, hints) || getMLModels(locals, hints).length > 0 : false, [step, locals, hints]);
+  const hasML      = useMemo(() => {
+    if (!step) return false;
+    return hasTrainingHistorySafe(locals, hints) || hasMLModelSafe(locals, hints);
+  }, [step, locals, hints]);
 
   // Previous step tree for new-node diffing
   const prevTreeData = useMemo(() => prevStep ? getTreeNode(prevLocals, prevHints) : null, [prevStep, prevLocals, prevHints]);
@@ -402,7 +421,10 @@ export default function VisualizationPanel() {
   const dispHasSQ     = useMemo(() => dispStep ? !!getStackOrQueue(dispLocals, dispHints) : false, [dispStep, dispLocals, dispHints]);
   const dispHasHeap   = hasHeap; // trace-wide — managed by hasHeap above
   const dispHasGraph  = useMemo(() => dispStep ? !!getGraph(dispLocals, dispHints)        : false, [dispStep, dispLocals, dispHints]);
-  const dispHasML     = useMemo(() => dispStep ? (!!getTrainingHistory(dispLocals, dispHints) || getMLModels(dispLocals, dispHints).length > 0) : false, [dispStep, dispLocals, dispHints]);
+  const dispHasML     = useMemo(() => {
+    if (!dispStep) return false;
+    return hasTrainingHistorySafe(dispLocals, dispHints) || hasMLModelSafe(dispLocals, dispHints);
+  }, [dispStep, dispLocals, dispHints]);
 
   const hasAnyContent = dispHasArray || dispHasMatrix || !!dispTreeData || dispStrings.length > 0
     || dispHasLL || dispHasSQ || dispHasHeap || dispHasGraph || dispHasML || pinnedVars.length > 0;
@@ -691,8 +713,10 @@ export default function VisualizationPanel() {
               if (dispHasHeap)   push('heap', 'Heap',           2, <HeapVisualizer trace={trace} currentStep={currentStep} />);
               if (dispHasGraph)  push('graph','Graph',          2, <GraphVisualizer stepData={dispStep} />);
               if (dispHasML) {
-                push('tc',  'Training Curve', 1, <TrainingCurveVisualizer stepData={dispStep} />);
-                push('mlm', 'Model',          2, <MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} />);
+                push('tc',  'Training Curve', 1,
+                  <VizErrorBoundary><TrainingCurveVisualizer stepData={dispStep} /></VizErrorBoundary>);
+                push('mlm', 'Model',          2,
+                  <VizErrorBoundary><MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} /></VizErrorBoundary>);
               }
               pinnedData.forEach(({ name, repr, prevRepr }) => {
                 if (repr) push(`pin-${name}`, `📌 ${name}`, 2,
@@ -750,8 +774,12 @@ export default function VisualizationPanel() {
                 )}
                 {hasTrace && dispHasML && (
                   <AnimatePresence>
-                    <motion.div key="tc" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><TrainingCurveVisualizer stepData={dispStep} /></motion.div>
-                    <motion.div key="mlm" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}><MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} /></motion.div>
+                    <motion.div key="tc" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                      <VizErrorBoundary><TrainingCurveVisualizer stepData={dispStep} /></VizErrorBoundary>
+                    </motion.div>
+                    <motion.div key="mlm" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
+                      <VizErrorBoundary><MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} /></VizErrorBoundary>
+                    </motion.div>
                   </AnimatePresence>
                 )}
                 {hasTrace && !hasAnyContent && !isError && (

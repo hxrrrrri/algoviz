@@ -53,9 +53,16 @@ function normaliseHistoryObject(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const out = {};
   for (const [k, v] of Object.entries(raw)) {
-    if (!Array.isArray(v)) continue;
-    const vals = v
-      .map(x => (typeof x === 'number' ? x : parseFloat(x)))
+    const src = Array.isArray(v)
+      ? v
+      : (v?.type === 'list' && Array.isArray(v.value) ? v.value : null);
+    if (!src) continue;
+    const vals = src
+      .map(x => {
+        if (typeof x === 'number') return x;
+        if (x && typeof x === 'object') return parseFloat(x.value ?? x);
+        return parseFloat(x);
+      })
       .filter(n => Number.isFinite(n));
     if (vals.length > 0) out[k] = vals;
   }
@@ -75,7 +82,9 @@ function extractHistory(repr) {
     const nested = extractHistory(repr.attrs.history);
     if (nested) return nested;
   }
-  if (repr.type === 'keras_history') return repr.history;
+  if (repr.type === 'keras_history') {
+    return normaliseHistoryObject(repr.history) || null;
+  }
   if (repr.type === 'dict' && repr.value) {
     const ML_KEYS = new Set(['loss','val_loss','accuracy','val_accuracy','acc','val_acc',
                              'mae','val_mae','mse','val_mse','auc','val_auc','precision',
@@ -110,6 +119,9 @@ export function getTrainingHistory(locals, hints) {
   // Fallback path: infer from locals so fit-history still shows without explicit hints.
   for (const [name, repr] of Object.entries(locals)) {
     if (seen.has(name)) continue;
+    if (!/history|metric|log/i.test(name) && repr?.type !== 'keras_history' && !repr?.history && !repr?.attrs?.history) {
+      continue;
+    }
     const hist = extractHistory(repr);
     if (hist) return { name, history: hist };
   }
@@ -382,15 +394,21 @@ function SummaryStrip({ history, keys }) {
 /* ── Main ── */
 export default function TrainingCurveVisualizer({ stepData }) {
   const { locals, structure_hints: hints } = stepData || {};
-  const data = useMemo(() => getTrainingHistory(locals, hints), [locals, hints]);
-  if (!data) return null;
-
-  const { name, history } = data;
-  const keys = Object.keys(history);
-  const epochs = history[keys[0]]?.length ?? 0;
+  const data = useMemo(() => {
+    try {
+      return getTrainingHistory(locals, hints);
+    } catch {
+      return null;
+    }
+  }, [locals, hints]);
+  const name = data?.name ?? '';
+  const history = data?.history ?? null;
+  const keys = history ? Object.keys(history) : [];
+  const epochs = keys.length ? (history[keys[0]]?.length ?? 0) : 0;
 
   // Group into families
   const families = useMemo(() => {
+    if (!history) return [];
     const map = {};
     let ci = 0;
     for (const key of keys) {
@@ -401,6 +419,8 @@ export default function TrainingCurveVisualizer({ stepData }) {
     }
     return Object.entries(map);
   }, [history, keys]);
+
+  if (!data) return null;
 
   return (
     <motion.div className="tc"

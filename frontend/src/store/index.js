@@ -19,7 +19,8 @@ function isMLStep(step) {
     const cls = String(repr.class || '').toLowerCase();
     const mlMod = String(repr.ml_module || '').toLowerCase();
     if (/keras|tensorflow|torch|sklearn|xgboost|lightgbm/.test(mlMod)) return true;
-    if (/sequential|functional|model|network|conv|lstm|gru|transformer|resnet|residual/.test(cls)) return true;
+    if (/sequential|functional|model|network|conv|cnn|ann|gan|generator|discriminator|autoencoder|vae|lstm|gru|transformer|resnet|residual/.test(cls)) return true;
+    if (repr.attrs?.layers?.type === 'list' || repr.attrs?._layers?.type === 'list') return true;
     if (repr.history && typeof repr.history === 'object') return true;
   }
 

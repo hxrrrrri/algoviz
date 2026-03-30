@@ -47,9 +47,10 @@ function edgePath(x1, y1, x2, y2, r) {
 export default function GraphVisualizer({ stepData }) {
   const { locals, structure_hints: hints } = stepData || {};
   const data = useMemo(() => getGraph(locals, hints), [locals, hints]);
-  if (!data?.nodes?.length) return null;
-
-  const { name, nodes, edges, directed } = data;
+  const name = data?.name ?? 'graph';
+  const nodes = data?.nodes ?? [];
+  const edges = data?.edges ?? [];
+  const directed = !!data?.directed;
   const pos = useMemo(() => circleLayout(nodes), [nodes]);
 
   // Deduplicate undirected edges for display
@@ -63,6 +64,8 @@ export default function GraphVisualizer({ stepData }) {
       return true;
     });
   }, [edges, directed]);
+
+  if (!nodes.length) return null;
 
   const canvasH = nodes.length <= 2 ? 120 : CANVAS;
 
