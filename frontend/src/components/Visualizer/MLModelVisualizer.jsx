@@ -142,7 +142,7 @@ function ActivationBadge({ name }) {
 }
 
 /* ── Single layer card ── */
-function LayerCard({ layer, idx, isActive, isExecuting }) {
+function LayerCard({ layer, idx, isActive, isAnimating }) {
   const { cls, name, units, activation, rate, kernelSize, paramCount, outShape, cfg } = layer;
   const shortCls = cls.replace(/layer/i, '').replace(/2d|1d/i, m => m.toUpperCase()) || cls;
 
@@ -179,8 +179,8 @@ function LayerCard({ layer, idx, isActive, isExecuting }) {
           {rate != null && <span className="mlm-layer-units">{(rate * 100).toFixed(0)}% drop</span>}
           {kernelSize != null && <span className="mlm-layer-units">k={JSON.stringify(kernelSize)}</span>}
           <ActivationBadge name={activation} />
-          {isActive && isExecuting && <span className="mlm-layer-active-tag">● processing</span>}
-          {isActive && !isExecuting && <span className="mlm-layer-active-tag mlm-layer-active-tag--step">◆ active</span>}
+          {isActive && isAnimating && <span className="mlm-layer-active-tag">● processing</span>}
+          {isActive && !isAnimating && <span className="mlm-layer-active-tag mlm-layer-active-tag--step">◆ active</span>}
         </div>
         <div className="mlm-layer-bot">
           <span className="mlm-layer-name">{name}</span>
@@ -206,27 +206,28 @@ function LayerCard({ layer, idx, isActive, isExecuting }) {
 }
 
 /* ── NN card ── */
-function NNCard({ name, repr, currentStep, traceLength, isExecuting }) {
+function NNCard({ name, repr, currentStep, traceLength, isExecuting, isPlaying }) {
   const cls          = repr?.class ?? '?';
   const layers       = extractLayers(repr);
   const totalParams  = repr?.total_params ?? null;
   const trainParams  = repr?.trainable_params ?? null;
   const nnFamily     = useMemo(() => inferNNFamily(cls, layers), [cls, layers]);
+  const isAnimating  = isExecuting || isPlaying;
 
   // Which layer index is "active" right now
   const [cycleIdx, setCycleIdx] = useState(0);
 
-  // While executing: cycle through layers automatically
+  // Animate layer flow while running or while timeline playback is active.
   useEffect(() => {
-    if (!isExecuting || !layers?.length) return;
-    const id = setInterval(() => setCycleIdx(i => (i + 1) % layers.length), 600);
+    if (!isAnimating || !layers?.length) return;
+    const id = setInterval(() => setCycleIdx(i => (i + 1) % layers.length), 520);
     return () => clearInterval(id);
-  }, [isExecuting, layers?.length]);
+  }, [isAnimating, layers?.length]);
 
-  // While stepping through trace: map step progress → layer index
+  // If animation is active use cycle flow; otherwise map timeline progress.
   const activeLayerIdx = useMemo(() => {
     if (!layers?.length) return null;
-    if (isExecuting) return cycleIdx;
+    if (isAnimating) return cycleIdx;
     if (!traceLength || traceLength <= 1) return null;
     // Clamp to layers.length - 1, but return null at the very last step (done)
     const progress = currentStep / (traceLength - 1);
@@ -235,7 +236,7 @@ function NNCard({ name, repr, currentStep, traceLength, isExecuting }) {
       Math.floor(progress * layers.length),
       layers.length - 1
     );
-  }, [isExecuting, cycleIdx, currentStep, traceLength, layers?.length]);
+  }, [isAnimating, cycleIdx, currentStep, traceLength, layers?.length]);
 
   // Fallback estimate if backend didn't provide count
   const paramInfo = useMemo(() => {
@@ -311,7 +312,7 @@ function NNCard({ name, repr, currentStep, traceLength, isExecuting }) {
                 <div className="mlm-connector-arrow"
                   style={{ borderTopColor: i === activeLayerIdx ? layer.cfg.color : layer.cfg.color + '50' }} />
               </div>
-              <LayerCard layer={layer} idx={i} isActive={i === activeLayerIdx} isExecuting={isExecuting} />
+              <LayerCard layer={layer} idx={i} isActive={i === activeLayerIdx} isAnimating={isAnimating} />
             </div>
           ))}
 
@@ -476,7 +477,7 @@ export function getMLModels(locals, hints) {
 }
 
 /* ── Main ── */
-export default function MLModelVisualizer({ stepData, currentStep, traceLength, isExecuting }) {
+export default function MLModelVisualizer({ stepData, currentStep, traceLength, isExecuting, isPlaying }) {
   const { locals, structure_hints: hints } = stepData || {};
   const models = useMemo(() => {
     try {
@@ -492,7 +493,7 @@ export default function MLModelVisualizer({ stepData, currentStep, traceLength, 
       {models.map(({ name, repr, hint }) =>
         hint === 'nn_model' || isNNClass(repr?.class ?? '')
           ? <NNCard key={name} name={name} repr={repr}
-              currentStep={currentStep} traceLength={traceLength} isExecuting={isExecuting} />
+              currentStep={currentStep} traceLength={traceLength} isExecuting={isExecuting} isPlaying={isPlaying} />
           : <SklearnCard key={name} name={name} repr={repr} />
       )}
     </div>

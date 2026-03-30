@@ -79,7 +79,7 @@ const useStore = create(
         set({ currentStep: s, highlightedLine: trace[s]?.line ?? null });
       },
       stepForward: () => {
-        const { currentStep, trace, setPlaying } = get();
+        const { currentStep, trace } = get();
         if (currentStep < trace.length - 1) get().setCurrentStep(currentStep + 1);
         else set({ isPlaying: false });
       },
@@ -93,19 +93,97 @@ const useStore = create(
       executeCode: async () => {
         const { code, language } = get();
         set({ isExecuting:true, trace:[], currentStep:0, executionError:null, isPlaying:false, highlightedLine:null });
+
+        const appendStep = (step) => {
+          set((s) => {
+            const nextTrace = [...s.trace, step];
+            const idx = nextTrace.length - 1;
+            return {
+              trace: nextTrace,
+              currentStep: idx,
+              highlightedLine: step?.line ?? null,
+            };
+          });
+        };
+
+        const finalizePlayback = () => {
+          const { trace } = get();
+          if (!trace.length) {
+            set({ isExecuting:false, executionError: 'Execution returned no trace.' });
+            return;
+          }
+          const firstMLStep = trace.findIndex(isMLStep);
+          const startStep = firstMLStep >= 0 ? firstMLStep : 0;
+          set({
+            currentStep: startStep,
+            highlightedLine: trace[startStep]?.line ?? null,
+            isExecuting:false,
+          });
+          setTimeout(() => set({ isPlaying: true }), 300);
+        };
+
         try {
+          // Prefer streaming endpoint for live visualization updates.
+          const streamRes = await fetch(`${API_BASE}/execute/stream`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, language, max_steps: 5000 }),
+          });
+
+          if (streamRes.ok && streamRes.body) {
+            const reader = streamRes.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            const handleLine = (line) => {
+              if (!line) return;
+              let msg;
+              try {
+                msg = JSON.parse(line);
+              } catch {
+                return;
+              }
+              if (msg.type === 'step' && msg.step) {
+                appendStep(msg.step);
+              } else if (msg.type === 'error') {
+                throw new Error(msg.message || 'Execution stream failed');
+              }
+            };
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              let nl = buffer.indexOf('\n');
+              while (nl >= 0) {
+                const line = buffer.slice(0, nl).trim();
+                buffer = buffer.slice(nl + 1);
+                handleLine(line);
+                nl = buffer.indexOf('\n');
+              }
+            }
+
+            if (buffer.trim()) {
+              handleLine(buffer.trim());
+            }
+
+            finalizePlayback();
+            return;
+          }
+
+          // Fallback to non-streaming API for older backends.
           const res = await fetch(`${API_BASE}/execute`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code, language, max_steps: 5000 }),
           });
-          if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Execution failed'); }
+          if (!res.ok) {
+            const e = await res.json();
+            throw new Error(e.detail || 'Execution failed');
+          }
           const data = await res.json();
-          const trace = data.trace || [];
-          const firstMLStep = trace.findIndex(isMLStep);
-          const startStep = firstMLStep >= 0 ? firstMLStep : 0;
-          set({ trace, currentStep:startStep, isExecuting:false, highlightedLine: trace[startStep]?.line ?? null });
-          setTimeout(() => set({ isPlaying: true }), 300);
+          set({ trace: data.trace || [] });
+          finalizePlayback();
         } catch (err) {
           set({ isExecuting:false, executionError: err.message, trace:[] });
         }

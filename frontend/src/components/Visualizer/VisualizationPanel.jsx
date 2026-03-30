@@ -321,6 +321,7 @@ export default function VisualizationPanel() {
   const code           = useStore(s => s.code);
   const executeCode    = useStore(s => s.executeCode);
   const isExecuting    = useStore(s => s.isExecuting);
+  const isPlaying      = useStore(s => s.isPlaying);
 
   const step     = trace[currentStep] || null;
   const prevStep = currentStep > 0 ? trace[currentStep - 1] : null;
@@ -716,7 +717,7 @@ export default function VisualizationPanel() {
                 push('tc',  'Training Curve', 1,
                   <VizErrorBoundary><TrainingCurveVisualizer stepData={dispStep} /></VizErrorBoundary>);
                 push('mlm', 'Model',          2,
-                  <VizErrorBoundary><MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} /></VizErrorBoundary>);
+                  <VizErrorBoundary><MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} isPlaying={isPlaying} /></VizErrorBoundary>);
               }
               pinnedData.forEach(({ name, repr, prevRepr }) => {
                 if (repr) push(`pin-${name}`, `📌 ${name}`, 2,
@@ -778,7 +779,7 @@ export default function VisualizationPanel() {
                       <VizErrorBoundary><TrainingCurveVisualizer stepData={dispStep} /></VizErrorBoundary>
                     </motion.div>
                     <motion.div key="mlm" className="vp-section" initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-                      <VizErrorBoundary><MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} /></VizErrorBoundary>
+                      <VizErrorBoundary><MLModelVisualizer stepData={dispStep} currentStep={currentStep} traceLength={trace.length} isExecuting={isExecuting} isPlaying={isPlaying} /></VizErrorBoundary>
                     </motion.div>
                   </AnimatePresence>
                 )}

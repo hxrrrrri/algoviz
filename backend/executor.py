@@ -8,7 +8,7 @@ import math
 import builtins
 import warnings
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 import io
 import contextlib
 
@@ -563,12 +563,28 @@ class PythonExecutor:
         self._stdout_buffer = []
         self._user_code_file = "<user_code>"
 
-    def execute(self, code: str, inputs: List[Any] = []) -> List[Dict]:
+    def execute(
+        self,
+        code: str,
+        inputs: Optional[List[Any]] = None,
+        on_step: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> List[Dict]:
         self._trace = []
         self._step_count = 0
         self._call_stack = []
         self._error = None
         self._stdout_buffer = []
+
+        if inputs is None:
+            inputs = []
+
+        def emit_step(step: Dict[str, Any]):
+            self._trace.append(step)
+            if on_step:
+                try:
+                    on_step(step)
+                except Exception:
+                    pass
 
         # Auto-raise limits for ML/scientific code
         if _is_ml_code(code):
@@ -582,23 +598,25 @@ class PythonExecutor:
         try:
             code = sanitize_code(code)
         except ValueError as e:
-            return [{
+            emit_step({
                 "step": 0, "line": 0, "event": "error",
                 "error": {"type": "SecurityError", "message": str(e), "line": 0},
                 "locals": {}, "globals": {}, "call_stack": [],
                 "stdout": "", "structure_hints": {}
-            }]
+            })
+            return self._trace
 
         # Compile to check for syntax errors first
         try:
             compiled = compile(code, self._user_code_file, 'exec')
         except SyntaxError as e:
-            return [{
+            emit_step({
                 "step": 0, "line": e.lineno or 0, "event": "error",
                 "error": {"type": "SyntaxError", "message": str(e.msg), "line": e.lineno or 0},
                 "locals": {}, "globals": {}, "call_stack": [],
                 "stdout": "", "structure_hints": {}
-            }]
+            })
+            return self._trace
 
         result_container = {"done": False, "exception": None}
         stdout_capture = io.StringIO()
@@ -689,7 +707,7 @@ class PythonExecutor:
                             "structure_hints": hints,
                             "return_value": safe_repr(arg) if event == 'return' and arg is not None else None
                         }
-                        self._trace.append(step_data)
+                        emit_step(step_data)
                         self._step_count += 1
                     except Exception:
                         pass
@@ -727,7 +745,7 @@ class PythonExecutor:
                     },
                     "structure_hints": {}
                 }
-                self._trace.append(err_step)
+                emit_step(err_step)
             finally:
                 sys.settrace(None)
                 result_container["done"] = True
@@ -738,7 +756,7 @@ class PythonExecutor:
 
         if thread.is_alive():
             # Timeout - add a timeout error step
-            self._trace.append({
+            emit_step({
                 "step": self._step_count,
                 "line": 0,
                 "event": "error",
